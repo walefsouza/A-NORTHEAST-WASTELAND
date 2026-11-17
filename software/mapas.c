@@ -1,13 +1,14 @@
-/* mapas.c - Tilemaps 40x30 das tres fases (manha, tarde e noite), com um id de tile por celula.
- * Tambem define a tabela tiles_solidos[] (quais tiles bloqueiam passagem) e as estruturas
- * CollisionMap de cada fase, que juntam tilemap + solidez para uso em collision_set_map().
- * A tabela de solidez ainda e provisoria: so os tiles de borda (9, 20 e 31) bloqueiam. */
 #include "mapas.h"
 
-/* ---- visual: ids de tile = numero NN de hex/Sprites/Tiles/tile_NN_*.hex ----
- * Fonte: ANW_mapas_40x30_v4. A noite usa o tile 32 (a ROM de tiles agora tem 256 posicoes). */
+// mapas.c - tilemaps das 3 fases (visual) + mapa de colisao (logica)
+
+// ---- visual ----
+// cada numero e o id de um tile = NN de hex/Sprites/Tiles/tile_NN_*.hex
+// cada fase e uma matriz linear MAP_COLS x MAP_ROWS (40x30 = 1200 celulas)
+// celula = linha * MAP_COLS + coluna
+// fonte: ANW_mapas_40x30_v4. A noite usa o tile 32 (ROM de tiles tem 256 posicoes)
 const unsigned char mapas_fase[NUM_FASES][MAP_COLS * MAP_ROWS] = {
-    /* manha */
+    // fase 0 - manha (borda = tile 9)
     {
          9,  9,  9,  8,  9,  9,  9,  9,  9, 10, 10,  9,  9,  8,  9,  9,  9,  4,  8,  9,  9,  9,  9,  9,  4,  9,  9,  9,  9,  9,  9,  4,  9,  9,  9,  9,  9,  9,  9,  9,
          9, 10,  8,  8,  0,  0, 10,  0,  0, 10,  8,  4,  8,  0,  4, 10, 10,  4, 10,  8,  4, 10,  4,  4, 10, 10, 10,  4,  4,  4,  4,  4,  4, 10,  4,  0,  4,  4, 10,  9,
@@ -40,7 +41,7 @@ const unsigned char mapas_fase[NUM_FASES][MAP_COLS * MAP_ROWS] = {
          9,  8,  0,  0,  8, 10,  4,  8,  8, 10, 10,  0, 10,  8,  4,  4,  0, 10,  8,  8,  8,  8,  0, 10,  8,  4, 10,  4, 10,  8,  8,  4, 10, 10,  0,  8, 10,  8,  8,  9,
          4,  9,  9,  4,  8,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9, 10,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  9,  8,  9,  9,  4,  4,  9,  9,  9,  9,  4
     },
-    /* tarde */
+    // fase 1 - tarde (borda = tile 20)
     {
         20, 19, 20, 21, 20, 20, 20, 20, 20, 20, 15, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 20, 20, 19, 15, 20, 20, 20, 20, 21, 17, 20, 20, 20, 20, 19, 20, 20, 20,
         20, 19, 19, 17, 21, 15, 19, 19, 21, 21, 17, 19, 19, 19, 19, 17, 19, 15, 21, 11, 17, 11, 15, 19, 21, 19, 21, 21, 17, 21, 19, 21, 19, 15, 21, 11, 11, 17, 21, 20,
@@ -73,7 +74,7 @@ const unsigned char mapas_fase[NUM_FASES][MAP_COLS * MAP_ROWS] = {
         20, 15, 11, 21, 17, 11, 19, 19, 19, 17, 17, 11, 17, 17, 11, 21, 15, 11, 11, 19, 17, 15, 19, 15, 17, 15, 19, 11, 19, 17, 21, 17, 21, 21, 15, 15, 15, 15, 17, 20,
         20, 20, 20, 20, 20, 15, 21, 20, 20, 20, 20, 19, 20, 20, 21, 21, 20, 20, 19, 15, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 17, 20, 15, 20, 20, 19, 20, 20
     },
-    /* noite */
+    // fase 2 - noite (borda = tile 31)
     {
         31, 31, 31, 30, 31, 31, 32, 31, 31, 31, 31, 28, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 26, 31, 31, 30, 31, 31, 31, 30, 26, 28, 31, 31, 31, 31, 31, 31, 31, 31,
         30, 30, 30, 32, 26, 32, 32, 28, 26, 22, 26, 28, 28, 28, 28, 26, 30, 32, 32, 28, 32, 28, 26, 32, 28, 32, 28, 22, 26, 30, 22, 32, 26, 22, 28, 26, 28, 28, 26, 30,
@@ -108,15 +109,19 @@ const unsigned char mapas_fase[NUM_FASES][MAP_COLS * MAP_ROWS] = {
     }
 };
 
-/* ---- colisao ----
- * PROVISORIO: so o tile que forma a borda de cada fase e solido
- * (9 = manha, 20 = tarde, 31 = noite). Ajuste conforme o que for parede/obstaculo. */
+// ---- colisao ----
+// tiles_solidos[id] = 1 se o tile bloqueia o jogador
+// PROVISORIO: so o tile que forma a borda de cada fase e solido
+// (9 = manha, 20 = tarde, 31 = noite). Ajuste conforme o que for parede/obstaculo
+// abaixo: 16 valores por linha (ids 0-15, 16-31, 32); os 1 sao os ids 9, 20 e 31
 const unsigned char tiles_solidos[NUM_TILES] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
     0
 };
 
+// um CollisionMap por fase: {tilemap, colunas, linhas, tamanho do tile, tabela de solidos, qtd de tiles}
+// a partida chama collision_set_map(&mapa_colisao[jogo.fase]) ao entrar
 const CollisionMap mapa_colisao[NUM_FASES] = {
     { mapas_fase[0], MAP_COLS, MAP_ROWS, TILE_SIZE, tiles_solidos, NUM_TILES },
     { mapas_fase[1], MAP_COLS, MAP_ROWS, TILE_SIZE, tiles_solidos, NUM_TILES },
