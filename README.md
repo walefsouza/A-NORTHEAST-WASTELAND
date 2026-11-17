@@ -86,6 +86,8 @@ O jogo coloca o jogador no papel de um cangaceiro que enfrenta, em três fases (
 | **R** | Volta ao menu (a partir da pausa ou do fim de jogo) |
 | **ESC** | Encerra o jogo |
 
+![Controles do jogo](images/ctrl.png)
+
 > [!NOTE]
 > As teclas **N** e **B** são atalhos de depuração que levam diretamente à fase 3 e ao chefe, respectivamente, e existem apenas para demonstração e teste.
 
