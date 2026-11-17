@@ -1,3 +1,4 @@
 *.v linguist-language=Verilog
 *.v linguist-detectable=true
 *.v linguist-generated=false
+# linguagens: forca Verilog
