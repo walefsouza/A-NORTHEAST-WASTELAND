@@ -1,0 +1,103 @@
+// =============================================================================
+// motor_background.v - MOTOR DO FUNDO (tilemap 40 x 30 com scroll)
+// =============================================================================
+// O fundo e uma grade de 40 x 30 TILES; cada tile e uma figura de 8 x 8 pixels
+// guardada na ROM de padroes de tiles (rom_tiles / padroes_tiles.mif).
+// 40 x 8 = 320 e 30 x 8 = 240: a grade cobre exatamente a tela logica.
+//
+// Para cada pixel (logic_x, logic_y) que o VGA pede, o motor responde com o
+// ENDERECO do pixel certo dentro da ROM de tiles, em 4 passos:
+//   1) em qual celula da tela o pixel cai:      coluna = x/8, linha = y/8
+//      (dividir por 8 = descartar os 3 bits de baixo)
+//   2) soma o scroll (em tiles) e da a volta no mapa (wraparound 40 x 30)
+//   3) le no tilemap qual tile esta naquela celula (tile_id)
+//   4) monta o endereco na ROM: {tile_id, linha_no_tile, coluna_no_tile}
+//
+// Scroll em TILES: o fundo anda de 8 em 8 pixels (granularidade do MOVBGX/Y).
+// A UC ja limita o scroll a 0..39 / 0..29, entao soma_x <= 39+39 = 78 e
+// soma_y <= 29+29 = 58: uma unica subtracao basta para o wraparound.
+//
+// Latencia: 1 ciclo na RAM do tilemap (+1 ciclo na ROM de tiles, no ghrd_top).
+// Por isso px/py sao atrasados 1 ciclo aqui, para chegarem junto com tile_id.
+// =============================================================================
+module motor_background (
+    input  wire        clk,
+    input  wire        reset,
+
+    input  wire [9:0]  logic_x,          // posiçao x do pixel atual
+    input  wire [8:0]  logic_y,          // posiçao y do pixel atual
+
+    input  wire [31:0] out_scroll_x,     // scroll horizontal do cenario
+    input  wire [31:0] out_scroll_y,     // scroll vertical do cenario
+
+    input  wire        cpu_we,           // habilita escrita no tilemap
+    input  wire [10:0] cpu_addr,         // endereço de escrita no tilemap
+    input  wire [7:0]  cpu_data,         // valor a escrever (id do tile)
+
+    output wire [13:0] endereco_memoria_padroes  // endereço final na rom de padroes
+);
+
+    // descobre em qual tile do mapa o pixel atual cai (tile = 8x8, por isso >>3)
+    wire [5:0] coluna_base = logic_x[8:3];
+    wire [4:0] linha_base  = logic_y[7:3];
+
+    // aplica o scroll (desloca a camera sobre o mapa)
+    wire [6:0] soma_x = coluna_base + out_scroll_x[5:0];
+    wire [5:0] soma_y = linha_base  + out_scroll_y[4:0];
+
+    // wraparound: mapa tem 40x30 tiles, se passou do limite volta ao inicio
+    wire [5:0] coluna = (soma_x >= 7'd40)
+                      ? (soma_x - 7'd40)
+                      : soma_x[5:0];
+    wire [4:0] linha = (soma_y >= 6'd30)
+                     ? (soma_y - 6'd30)
+                     : soma_y[5:0];
+
+    // posiçao do pixel dentro do tile, independe do scroll
+    wire [2:0] px_in = logic_x[2:0];
+    wire [2:0] py_in = logic_y[2:0];
+
+    // endereco linear do tile no tilemap: linha*40 + coluna, via shifts (linha<<5 + linha<<3 = linha*40)
+    wire [10:0] tilemap_addr = (linha << 5) + (linha << 3) + coluna;
+
+    // ---------------------------------------------------------------------
+    // TILEMAP: RAM de 2 portas (40 x 30 = 1200 posicoes usadas, 2048 no total)
+    //   - porta de ESCRITA: Unidade de Controle (instrucao PDRBG)
+    //   - porta de LEITURA: este motor, a cada pixel
+    // As portas sao independentes: o jogo pode trocar tiles enquanto a tela
+    // e desenhada. Enderecos 1200..2047 existem mas nunca sao exibidos.
+    // ---------------------------------------------------------------------
+    // busca qual tile esta armazenado nessa posiçao do mapa
+    wire [7:0] tile_id;
+    ram_tilemap ip_memoria_cenario (
+        .data      (cpu_data),
+        .wraddress (cpu_addr),
+        .wren      (cpu_we),
+        .wrclock   (clk),
+        .rdaddress (tilemap_addr),
+        .rdclock   (clk),
+        .q         (tile_id)
+    );
+
+    // a ram tem 1 ciclo de atraso entre endereco e dado, entao px/py tambem
+    // precisam ser atrasados 1 ciclo pra ficarem alinhados com tile_id
+    reg [2:0] px_r;
+    reg [2:0] py_r;
+    always @(posedge clk) begin
+        if (reset) begin
+            px_r <= 3'd0;
+            py_r <= 3'd0;
+        end else begin
+            px_r <= px_in;
+            py_r <= py_in;
+        end
+    end
+
+    // endereco na ROM de tiles (cada tile ocupa 64 bytes = 8 linhas x 8 colunas):
+    //   endereco = tile_id*64 + linha_no_tile*8 + coluna_no_tile
+    //   (14 bits; o ghrd_top usa os 11 de baixo, ou seja, os tiles 0..31)
+    // monta o endereco final na rom de padroes
+    // tile_id escolhe o bloco de 64 bytes (8x8), py_r/px_r escolhem o pixel dentro dele
+    assign endereco_memoria_padroes = {tile_id, py_r, px_r};
+
+endmodule

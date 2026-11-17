@@ -1,0 +1,50 @@
+module registrador_status (
+    input  wire        clk,
+    input  wire        reset,
+    input  wire        fifo_vazia,
+    input  wire        fifo_cheia,
+    input  wire        fifo_quase_cheia,
+    input  wire        uc_ocupada,
+    input  wire        esperando_vblank,
+    input  wire        opcode_invalido,     
+    input  wire        limpar_erro,         
+    input  wire        em_vblank,
+    input  wire        front_sel,
+    input  wire        vblank_start_pulse,
+
+    output reg  [31:0] status
+);
+
+    reg        erro_opcode;
+    reg [15:0] contador_quadros;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            erro_opcode      <= 1'b0;
+            contador_quadros <= 16'd0;
+            status           <= 32'd0;
+        end else begin
+            // flag de erro "grudenta": o pulso seta, so reset ou limpar_erro zera
+            if (opcode_invalido)
+                erro_opcode <= 1'b1;
+            else if (limpar_erro)
+                erro_opcode <= 1'b0;
+
+            if (vblank_start_pulse)
+                contador_quadros <= contador_quadros + 16'd1;
+
+            // status registrado: o valor lido e estavel durante o ciclo todo
+            status <= {8'd0,
+                       contador_quadros,
+                       front_sel,
+                       em_vblank,
+                       erro_opcode | opcode_invalido,
+                       esperando_vblank,
+                       uc_ocupada,
+                       fifo_quase_cheia,
+                       fifo_cheia,
+                       fifo_vazia};
+        end
+    end
+
+endmodule

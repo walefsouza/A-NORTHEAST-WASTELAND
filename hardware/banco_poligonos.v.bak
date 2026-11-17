@@ -1,0 +1,46 @@
+module banco_poligonos (
+    input          clk,
+    input          reset,
+    input          we,
+    input  [2:0]   write_addr,
+    input  [31:0]  write_data,
+    input  [2:0]   read_addr,
+    output [31:0]  read_data,
+    output [255:0] read_data_all,
+    input          tam_we,
+    input  [2:0]   tam_addr,
+    input  [16:0]  tam_data,
+    output [135:0] tam_all
+);
+
+    localparam [16:0] TAM_PADRAO = {9'd50, 8'd50};
+
+    reg [31:0] registradores [0:7];
+    reg [16:0] tamanhos      [0:7];
+    integer i;
+
+    always @(posedge clk) begin
+        if (reset) begin
+            for (i = 0; i < 8; i = i + 1) begin
+                registradores[i] <= 32'd0;
+                tamanhos[i]      <= TAM_PADRAO;
+            end
+        end else begin
+            if (we)     registradores[write_addr] <= write_data;
+            if (tam_we) tamanhos[tam_addr]        <= tam_data;
+        end
+    end
+
+    assign read_data = registradores[read_addr];
+
+    assign read_data_all = {
+        registradores[7], registradores[6], registradores[5], registradores[4],
+        registradores[3], registradores[2], registradores[1], registradores[0]
+    };
+
+    assign tam_all = {
+        tamanhos[7], tamanhos[6], tamanhos[5], tamanhos[4],
+        tamanhos[3], tamanhos[2], tamanhos[1], tamanhos[0]
+    };
+
+endmodule

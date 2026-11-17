@@ -1,0 +1,56 @@
+module fifo_instrucoes (
+    input wire clock,
+    input wire reset,
+    input wire hab_escrita,
+    input wire [31:0] instrucao_entrada,
+    input wire hab_leitura,
+    output wire [31:0] instrucao_saida,
+    output wire cheia,
+    output wire quase_cheia,
+    output wire vazia,
+    output wire quase_vazia
+);
+
+    reg [31:0] memoria_fila [0:31];
+
+    reg [4:0] ponteiro_escrita = 0;
+    reg [4:0] ponteiro_leitura = 0;
+    reg [5:0] contador_elementos = 0;
+
+    assign cheia = (contador_elementos == 32);
+    assign quase_cheia = (contador_elementos == 31);
+    assign vazia = (contador_elementos == 0);
+    assign quase_vazia = (contador_elementos == 1);
+
+    assign instrucao_saida = memoria_fila[ponteiro_leitura];
+
+    always @(posedge clock) begin
+        if (reset) begin
+            ponteiro_leitura <= 0;
+            ponteiro_escrita <= 0;
+            contador_elementos <= 0;
+        end else begin
+            if (hab_escrita && !cheia && (!hab_leitura || vazia))
+                contador_elementos <= contador_elementos + 1;
+            else if (hab_leitura && !vazia && (!hab_escrita || cheia))
+                contador_elementos <= contador_elementos - 1;
+
+            if (hab_escrita && !cheia) begin
+                memoria_fila[ponteiro_escrita] <= instrucao_entrada;
+
+                if (ponteiro_escrita == 31)
+                    ponteiro_escrita <= 0;
+                else
+                    ponteiro_escrita <= ponteiro_escrita + 1;
+            end
+
+            if (hab_leitura && !vazia) begin
+                if (ponteiro_leitura == 31)
+                    ponteiro_leitura <= 0;
+                else
+                    ponteiro_leitura <= ponteiro_leitura + 1;
+            end
+        end
+    end
+
+endmodule

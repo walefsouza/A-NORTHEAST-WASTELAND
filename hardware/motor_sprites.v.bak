@@ -1,0 +1,184 @@
+module motor_sprites (
+    input wire clk,
+    input wire reset,
+    input wire nova_linha_pulso,
+    input wire [8:0] linha_alvo,
+    input wire [1023:0] sprite_atributos,
+    input wire [7:0] rom_dado,
+    input wire [8:0] leitura_x,
+    output reg [12:0] rom_endereco,
+    output wire [7:0] sprite_index,
+    output reg linha_pronta
+);
+
+    reg [7:0] buffer_a [0:319];
+    reg [7:0] buffer_b [0:319];
+    reg pagina;
+
+    assign sprite_index = (pagina == 1'b0) ? buffer_a[leitura_x] : buffer_b[leitura_x];
+
+    localparam OCIOSO = 3'd0;
+    localparam LIMPAR_LINHA = 3'd1;
+    localparam COLETA = 3'd2;
+    localparam BUSCA_MIN = 3'd3;
+    localparam CARREGA_SPRITE = 3'd4;
+    localparam CALCULO_ROM = 3'd5;
+    localparam ESPERA_ROM = 3'd6;
+    localparam ESCRITA_PIXEL = 3'd7;
+
+    reg [2:0] estado;
+    reg [8:0] linha_reg;
+    reg [8:0] contador_limpeza;
+    reg [4:0] indice_varredura;
+    reg [5:0] qtd_candidatos;
+    reg [4:0] candidato_indice [0:31];
+    reg desenhado [0:31];
+    reg achou_min;
+    reg [4:0] min_prioridade_atual;
+    reg [4:0] min_indice_lista;
+    reg [5:0] selecionados;
+    reg [8:0] sprite_x;
+    reg [7:0] sprite_y;
+    reg sprite_espelho_h;
+    reg sprite_espelho_v;
+    reg [4:0] sprite_padrao;
+    reg [3:0] pixel_y_no_sprite;
+    reg [3:0] pixel_x;
+
+    wire chk_ativo = sprite_atributos[indice_varredura*32 + 31];
+    wire [7:0] chk_y = sprite_atributos[indice_varredura*32 + 14 -: 8];
+    wire [9:0] chk_fim_y = {1'b0,chk_y} + 10'd16;
+    wire chk_cruza = ({1'b0,linha_reg} >= {1'b0,chk_y}) && ({1'b0,linha_reg} < chk_fim_y);
+
+    wire [4:0] idx_sprite_candidato = candidato_indice[indice_varredura];
+    wire [4:0] prioridade_candidato = sprite_atributos[idx_sprite_candidato*32 + 6 -: 5];
+    wire [5:0] ultimo_indice_lista = qtd_candidatos - 6'd1;
+    wire [9:0] endereco_escrita = {1'b0,sprite_x} + pixel_x;
+
+    wire [7:0] candidato_y = sprite_atributos[candidato_indice[min_indice_lista]*32 + 14 -: 8];
+    wire [8:0] linha_relativa = linha_reg - {1'b0,candidato_y};
+
+    always @(posedge clk) begin
+        if (reset) begin
+            estado <= OCIOSO;
+            pagina <= 1'b0;
+            linha_pronta <= 1'b0;
+            indice_varredura <= 5'd0;
+            qtd_candidatos <= 6'd0;
+            contador_limpeza <= 9'd0;
+        end else begin
+            linha_pronta <= 1'b0;
+
+            if (nova_linha_pulso)
+                pagina <= ~pagina;
+
+            case (estado)
+                OCIOSO: begin
+                    if (nova_linha_pulso) begin
+                        linha_reg <= linha_alvo;
+                        contador_limpeza <= 9'd0;
+                        estado <= LIMPAR_LINHA;
+                    end
+                end
+
+                LIMPAR_LINHA: begin
+                    if (pagina == 1'b0)
+                        buffer_b[contador_limpeza] <= 8'd0;
+                    else
+                        buffer_a[contador_limpeza] <= 8'd0;
+
+                    if (contador_limpeza == 9'd319) begin
+                        indice_varredura <= 5'd0;
+                        qtd_candidatos <= 6'd0;
+                        estado <= COLETA;
+                    end else begin
+                        contador_limpeza <= contador_limpeza + 9'd1;
+                    end
+                end
+
+                COLETA: begin
+                    if (chk_ativo && chk_cruza) begin
+                        candidato_indice[qtd_candidatos] <= indice_varredura;
+                        desenhado[qtd_candidatos] <= 1'b0;
+                        qtd_candidatos <= qtd_candidatos + 6'd1;
+                    end
+
+                    if (indice_varredura == 5'd31) begin
+                        selecionados <= 6'd0;
+                        indice_varredura <= 5'd0;
+                        estado <= BUSCA_MIN;
+                    end else begin
+                        indice_varredura <= indice_varredura + 5'd1;
+                    end
+                end
+
+                BUSCA_MIN: begin
+                    if (qtd_candidatos == 6'd0 || selecionados == qtd_candidatos) begin
+                        linha_pronta <= 1'b1;
+                        estado <= OCIOSO;
+                    end else begin
+                        if (indice_varredura == 5'd0)
+                            achou_min <= 1'b0;
+
+                        if (!desenhado[indice_varredura]) begin
+                            if (!achou_min || prioridade_candidato < min_prioridade_atual) begin
+                                achou_min <= 1'b1;
+                                min_prioridade_atual <= prioridade_candidato;
+                                min_indice_lista <= indice_varredura;
+                            end
+                        end
+
+                        if ({1'b0,indice_varredura} == ultimo_indice_lista)
+                            estado <= CARREGA_SPRITE;
+                        else
+                            indice_varredura <= indice_varredura + 5'd1;
+                    end
+                end
+
+                CARREGA_SPRITE: begin
+                    sprite_espelho_h <= sprite_atributos[candidato_indice[min_indice_lista]*32 + 25];
+                    sprite_espelho_v <= sprite_atributos[candidato_indice[min_indice_lista]*32 + 24];
+                    sprite_x <= sprite_atributos[candidato_indice[min_indice_lista]*32 + 23 -: 9];
+                    sprite_y <= candidato_y;
+                    sprite_padrao <= sprite_atributos[candidato_indice[min_indice_lista]*32 + 30 -: 5];
+                    pixel_y_no_sprite <= linha_relativa[3:0];
+                    pixel_x <= 4'd0;
+                    estado <= CALCULO_ROM;
+                end
+
+                CALCULO_ROM: begin
+                    rom_endereco <= {sprite_padrao,sprite_espelho_v ? ~pixel_y_no_sprite : pixel_y_no_sprite,sprite_espelho_h ? ~pixel_x : pixel_x};
+                    estado <= ESPERA_ROM;
+                end
+
+                ESPERA_ROM: begin
+                    estado <= ESCRITA_PIXEL;
+                end
+
+                ESCRITA_PIXEL: begin
+                    if (rom_dado != 8'd0 && endereco_escrita < 10'd320) begin
+                        if (pagina == 1'b0)
+                            buffer_b[endereco_escrita[8:0]] <= rom_dado;
+                        else
+                            buffer_a[endereco_escrita[8:0]] <= rom_dado;
+                    end
+
+                    if (pixel_x == 4'd15) begin
+                        desenhado[min_indice_lista] <= 1'b1;
+                        selecionados <= selecionados + 6'd1;
+                        indice_varredura <= 5'd0;
+                        estado <= BUSCA_MIN;
+                    end else begin
+                        pixel_x <= pixel_x + 4'd1;
+                        estado <= CALCULO_ROM;
+                    end
+                end
+
+                default: begin
+                    estado <= OCIOSO;
+                end
+            endcase
+        end
+    end
+
+endmodule

@@ -1,0 +1,172 @@
+module motor_poligonos (
+    input  wire         clk,
+    input  wire         reset,
+    input  wire [9:0]   logic_x,
+    input  wire [8:0]   logic_y,
+    input  wire [255:0] poly_attr,
+    input  wire [135:0] poly_tam,
+    output reg  [7:0]   poly_color_out
+);
+
+    integer i, k;
+
+    // =========================================================================
+    // Pre-calculo por poligono (depende so dos atributos)
+    // =========================================================================
+    // saidas registradas: 8 poligonos x 4 arestas
+    reg signed [11:0] r_ax [0:31];   // vertice de origem da aresta
+    reg signed [11:0] r_ay [0:31];
+    reg signed [11:0] r_dx [0:31];   // Bx - Ax
+    reg signed [11:0] r_dy [0:31];   // By - Ay
+    reg               r_ok [0:7];    // ligado e com area valida
+    reg        [7:0]  r_cor[0:7];
+
+    // variaveis do bloco combinacional de pre-calculo
+    reg        p_enable, p_esp_h, p_esp_v;
+    reg [2:0]  p_shape;
+    reg signed [11:0] x0, y0, w, h, larg, alt, topo, xe, xd, yc, yb;
+    reg signed [11:0] ax, ay, bx, by, cx, cy, dx, dy;
+    reg               valida;
+
+    reg signed [11:0] c_ax [0:31];
+    reg signed [11:0] c_ay [0:31];
+    reg signed [11:0] c_dx [0:31];
+    reg signed [11:0] c_dy [0:31];
+    reg               c_ok [0:7];
+    reg        [7:0]  c_cor[0:7];
+
+    always @(*) begin
+        for (i = 0; i < 8; i = i + 1) begin
+            p_enable = poly_attr[i*32 + 31];
+            p_shape  = poly_attr[i*32 + 30 -: 3];
+            p_esp_h  = poly_attr[i*32 + 19];
+            p_esp_v  = poly_attr[i*32 + 18];
+            x0 = $signed({3'b000,  poly_attr[i*32 + 17 -: 9]});
+            y0 = $signed({4'b0000, poly_attr[i*32 + 8  -: 8]});
+            w  = $signed({3'b000,  poly_tam[i*17 + 16 -: 9]});
+            h  = $signed({4'b0000, poly_tam[i*17 + 7  -: 8]});
+
+            // tamanho efetivo de cada forma (so shifts, sem divisor)
+            larg = w;
+            case (p_shape)
+                3'd0:    alt = w;                            // quadrado: W x W
+                3'd3:    alt = w - (w >>> 3) - (w >>> 6);    // ~0,86*W
+                default: alt = h;
+            endcase
+            topo = (p_shape == 3'd4) ? (w >>> 3) + (w >>> 4) + (w >>> 6)  // ~W/5
+                                     : (w >>> 1);                         // W/2
+
+            xe = x0;  xd = x0 + larg - 1;
+            yc = y0;  yb = y0 + alt  - 1;
+
+            valida = (larg >= 2) && (alt >= 2);
+            case (p_shape)
+                3'd0, 3'd1: begin
+                    ax=xe; ay=yc;  bx=xd; by=yc;  cx=xd; cy=yb;  dx=xe; dy=yb;
+                end
+                3'd2, 3'd3, 3'd4: begin
+                    ax=x0+topo; ay=yc;  bx=xd; by=yb;  cx=xe; cy=yb;  dx=ax; dy=ay;
+                end
+                default: begin
+                    ax=0; ay=0; bx=0; by=0; cx=0; cy=0; dx=0; dy=0;
+                    valida = 1'b0;
+                end
+            endcase
+
+            if (p_esp_h) begin
+                ax=xe+xd-ax; bx=xe+xd-bx; cx=xe+xd-cx; dx=xe+xd-dx;
+            end
+            if (p_esp_v) begin
+                ay=yc+yb-ay; by=yc+yb-by; cy=yc+yb-cy; dy=yc+yb-dy;
+            end
+
+            // arestas A->B, B->C, C->D, D->A
+            c_ax[i*4+0] = ax;  c_ay[i*4+0] = ay;  c_dx[i*4+0] = bx-ax;  c_dy[i*4+0] = by-ay;
+            c_ax[i*4+1] = bx;  c_ay[i*4+1] = by;  c_dx[i*4+1] = cx-bx;  c_dy[i*4+1] = cy-by;
+            c_ax[i*4+2] = cx;  c_ay[i*4+2] = cy;  c_dx[i*4+2] = dx-cx;  c_dy[i*4+2] = dy-cy;
+            c_ax[i*4+3] = dx;  c_ay[i*4+3] = dy;  c_dx[i*4+3] = ax-dx;  c_dy[i*4+3] = ay-dy;
+
+            c_ok[i]  = p_enable && valida;
+            c_cor[i] = poly_attr[i*32 + 27 -: 8];
+        end
+    end
+
+    always @(posedge clk) begin
+        for (k = 0; k < 32; k = k + 1) begin
+            r_ax[k] <= c_ax[k];
+            r_ay[k] <= c_ay[k];
+            r_dx[k] <= c_dx[k];
+            r_dy[k] <= c_dy[k];
+        end
+        for (k = 0; k < 8; k = k + 1) begin
+            r_ok[k]  <= reset ? 1'b0 : c_ok[k];
+            r_cor[k] <= c_cor[k];
+        end
+    end
+
+    // =========================================================================
+    // Estagio 1: funcao de aresta de cada uma das 32 arestas
+    // =========================================================================
+    wire signed [11:0] px = $signed({2'b00,  logic_x});
+    wire signed [11:0] py = $signed({3'b000, logic_y});
+
+    reg [31:0] s_pos, s_neg;     // aresta >= 0 / aresta <= 0
+    reg [7:0]  s1_ok;
+    reg [7:0]  s1_cor [0:7];
+
+    genvar g;
+    generate
+        for (g = 0; g < 32; g = g + 1) begin : aresta
+            wire signed [11:0] rx = px - r_ax[g];
+            wire signed [11:0] ry = py - r_ay[g];
+            wire signed [23:0] m1 = r_dx[g] * ry;     // 12x12 -> 24
+            wire signed [23:0] m2 = r_dy[g] * rx;
+            wire signed [24:0] e  = m1 - m2;
+
+            always @(posedge clk) begin
+                if (reset) begin
+                    s_pos[g] <= 1'b0;
+                    s_neg[g] <= 1'b0;
+                end else begin
+                    s_pos[g] <= (e >= 0);
+                    s_neg[g] <= (e <= 0);
+                end
+            end
+        end
+    endgenerate
+
+    always @(posedge clk) begin
+        for (k = 0; k < 8; k = k + 1) begin
+            s1_ok[k]  <= reset ? 1'b0 : r_ok[k];
+            s1_cor[k] <= r_cor[k];
+        end
+    end
+
+    // =========================================================================
+    // Estagio 2: dentro/fora e prioridade (indice maior vence)
+    // =========================================================================
+    reg       achou;
+    reg [7:0] cor;
+    reg       hit;
+
+    always @(*) begin
+        achou = 1'b0;
+        cor   = 8'd0;
+        for (i = 0; i < 8; i = i + 1) begin
+            hit = s1_ok[i] &&
+                  ((&s_pos[i*4 +: 4]) || (&s_neg[i*4 +: 4]));
+            if (hit) begin
+                achou = 1'b1;
+                cor   = s1_cor[i];
+            end
+        end
+    end
+
+    always @(posedge clk) begin
+        if (reset)
+            poly_color_out <= 8'd0;
+        else
+            poly_color_out <= achou ? cor : 8'd0;
+    end
+
+endmodule

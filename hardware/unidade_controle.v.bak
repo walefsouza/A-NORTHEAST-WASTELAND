@@ -1,0 +1,307 @@
+module unidade_controle (
+    input  wire        clk,
+    input  wire        reset,
+
+    // fila de instrucoes (FIFO show-ahead)
+    input  wire [31:0] instrucao_saida,
+    input  wire        vazia,
+    output reg         hab_leitura,
+
+    input  wire        vblank_start_pulse,
+
+    // background
+    output reg         bg_we,
+    output reg  [2:0]  bg_write_addr,
+    output reg  [31:0] bg_write_data,
+    output reg         tilemap_we,
+    output reg  [10:0] tilemap_addr,
+    output reg  [7:0]  tilemap_data,
+
+    // sprites
+    output reg         spr_we,
+    output reg  [4:0]  spr_write_addr,
+    output reg  [31:0] spr_write_data,
+    output wire [4:0]  spr_read_addr,
+    input  wire [31:0] spr_read_data,
+
+    // poligonos
+    output reg         poly_we,
+    output reg  [2:0]  poly_write_addr,
+    output reg  [31:0] poly_write_data,
+    output wire [2:0]  poly_read_addr,
+    input  wire [31:0] poly_read_data,
+    output reg         poly_tam_we,
+    output reg  [2:0]  poly_tam_addr,
+    output reg  [16:0] poly_tam_data,
+
+    // compositor
+    output reg  [2:0]  prioridade_compositor,
+
+    // sinais para o registrador de status
+    output wire        ocupada,           // 0 so quando parada em BUSCA com fila vazia
+    output wire        esperando_vblank,  // 1 enquanto aguarda o inicio do vblank
+    output reg         opcode_invalido    // pulso de 1 ciclo ao descartar opcode fora da ISA
+);
+
+    // ------------------------------------------------------------------
+    // Mapa de opcodes
+    // ------------------------------------------------------------------
+    // 00xxx - controle
+    localparam OP_WAITVBLANK = 5'b00_000;
+    localparam OP_PRICOMP    = 5'b00_101;   // "PRI" do compositor
+
+    // 01xxx - background
+    localparam OP_DELBG      = 5'b01_001;   // OP[0]: 0 desliga, 1 liga
+    localparam OP_MOVBGX     = 5'b01_010;   // A[5:0]: scroll X em tiles (0..39)
+    localparam OP_PDRBG      = 5'b01_011;   // [18:8] TMADDR, [7:0] TILE
+    localparam OP_MOVBGY     = 5'b01_110;   // B[4:0]: scroll Y em tiles (0..29)
+
+    // 10xxx - sprites
+    localparam OP_INSSPR     = 5'b10_000;   // ID, OP = padrao
+    localparam OP_DELSPR     = 5'b10_001;   // ID
+    localparam OP_MOVSPR     = 5'b10_010;   // A = X, B = Y, ID
+    localparam OP_PDRSPR     = 5'b10_011;   // ID, OP = padrao
+    localparam OP_INVSPR     = 5'b10_100;   // ID, OP[1] = H, OP[0] = V
+    localparam OP_PRISPR     = 5'b10_101;   // ID, OP = prioridade
+
+    // 11xxx - poligonos
+    localparam OP_INSPOL     = 5'b11_000;   // B = COLOR, ID, OP[2:0] = SHAPE
+    localparam OP_DELPOL     = 5'b11_001;   // ID
+    localparam OP_MOVPOL     = 5'b11_010;   // A = X, B = Y, ID
+    localparam OP_COLPOL     = 5'b11_011;   // B = COLOR, ID
+    localparam OP_INVPOL     = 5'b11_100;   // ID, OP[1] = H, OP[0] = V
+    localparam OP_TAMPOL     = 5'b11_101;   // A = W, B = H, ID
+
+    // limites do tilemap (usados para limitar o scroll)
+    localparam [5:0] MAPA_COLUNAS = 6'd40;
+    localparam [4:0] MAPA_LINHAS  = 5'd30;
+
+    // ------------------------------------------------------------------
+    // Registrador de Instrucao e campos decodificados
+    // ------------------------------------------------------------------
+    reg  [31:0] ir;
+
+    wire [4:0]  opcode   = ir[31:27];
+    wire [8:0]  campo_a  = ir[26:18];
+    wire [7:0]  campo_b  = ir[17:10];
+    wire [4:0]  id_spr   = ir[9:5];
+    wire [2:0]  id_pol   = ir[7:5];
+    wire [4:0]  campo_op = ir[4:0];
+
+    // formato T (PDRBG)
+    wire [10:0] campo_tmaddr = ir[18:8];
+    wire [7:0]  campo_tile   = ir[7:0];
+
+    // leitura dos bancos para as instrucoes read-modify-write
+    assign spr_read_addr  = id_spr;
+    assign poly_read_addr = id_pol;
+
+    // scroll limitado ao tamanho do mapa (modulo): o banco nunca recebe
+    // valor fora de 0..39 / 0..29, entao o wraparound do motor sempre funciona.
+    // Uma subtracao basta porque o maior valor do campo (63 / 31) e menor
+    // que o dobro do limite.
+    wire [5:0] scroll_x_bruto = campo_a[5:0];
+    wire [4:0] scroll_y_bruto = campo_b[4:0];
+    wire [5:0] scroll_x_lim = (scroll_x_bruto >= MAPA_COLUNAS) ? scroll_x_bruto - MAPA_COLUNAS
+                                                              : scroll_x_bruto;
+    wire [4:0] scroll_y_lim = (scroll_y_bruto >= MAPA_LINHAS)  ? scroll_y_bruto - MAPA_LINHAS
+                                                              : scroll_y_bruto;
+
+    // ------------------------------------------------------------------
+    // FSM
+    // ------------------------------------------------------------------
+    localparam BUSCA         = 2'd0;
+    localparam EXECUTA       = 2'd1;
+    localparam ESPERA_VBLANK = 2'd2;
+
+    reg [1:0] estado;
+
+    // pop combinacional: acontece no mesmo ciclo em que o IR captura
+    always @(*) begin
+        hab_leitura = (estado == BUSCA) && !vazia;
+    end
+
+    assign ocupada          = !((estado == BUSCA) && vazia);
+    assign esperando_vblank = (estado == ESPERA_VBLANK);
+
+    always @(posedge clk) begin
+        if (reset) begin
+            estado                <= BUSCA;
+            ir                    <= 32'd0;
+            opcode_invalido       <= 1'b0;
+            bg_we                 <= 1'b0;
+            tilemap_we            <= 1'b0;
+            spr_we                <= 1'b0;
+            poly_we               <= 1'b0;
+            poly_tam_we           <= 1'b0;
+            prioridade_compositor <= 3'b000;
+            bg_write_addr   <= 3'd0;   bg_write_data   <= 32'd0;
+            tilemap_addr    <= 11'd0;  tilemap_data    <= 8'd0;
+            spr_write_addr  <= 5'd0;   spr_write_data  <= 32'd0;
+            poly_write_addr <= 3'd0;   poly_write_data <= 32'd0;
+            poly_tam_addr   <= 3'd0;   poly_tam_data   <= 17'd0;
+        end else begin
+            // strobes duram exatamente 1 ciclo
+            bg_we           <= 1'b0;
+            tilemap_we      <= 1'b0;
+            spr_we          <= 1'b0;
+            poly_we         <= 1'b0;
+            poly_tam_we     <= 1'b0;
+            opcode_invalido <= 1'b0;
+
+            case (estado)
+                // ------------------------------------------------------
+                BUSCA: begin
+                    if (!vazia) begin
+                        ir     <= instrucao_saida;
+                        estado <= EXECUTA;
+                    end
+                end
+
+                // ------------------------------------------------------
+                EXECUTA: begin
+                    estado <= BUSCA;   // padrao: volta a buscar
+
+                    case (opcode)
+                        // ================= CONTROLE =================
+                        OP_WAITVBLANK: begin
+                            estado <= ESPERA_VBLANK;
+                        end
+
+                        OP_PRICOMP: begin
+                            // OP[2] fundo | OP[1] poligono | OP[0] sprite
+                            prioridade_compositor <= campo_op[2:0];
+                        end
+
+                        // ================= BACKGROUND =================
+                        // banco_background: reg 0 = video_ctrl (bit 0 = fundo desligado)
+                        //                   reg 1 = scroll X | reg 2 = scroll Y
+                        OP_DELBG: begin
+                            bg_we         <= 1'b1;
+                            bg_write_addr <= 3'd0;
+                            bg_write_data <= {31'd0, ~campo_op[0]};
+                        end
+
+                        OP_MOVBGX: begin
+                            bg_we         <= 1'b1;
+                            bg_write_addr <= 3'd1;
+                            bg_write_data <= {26'd0, scroll_x_lim};
+                        end
+
+                        OP_MOVBGY: begin
+                            bg_we         <= 1'b1;
+                            bg_write_addr <= 3'd2;
+                            bg_write_data <= {27'd0, scroll_y_lim};
+                        end
+
+                        OP_PDRBG: begin
+                            tilemap_we   <= 1'b1;
+                            tilemap_addr <= campo_tmaddr;
+                            tilemap_data <= campo_tile;
+                        end
+
+                        // ================= SPRITES =================
+                        // registro: [31] ativo | [30:26] padrao | [25] esp_h | [24] esp_v
+                        //           [23:15] X | [14:7] Y | [6:2] prioridade | [1:0] livre
+                        OP_INSSPR: begin
+                            spr_we         <= 1'b1;
+                            spr_write_addr <= id_spr;
+                            spr_write_data <= {1'b1, campo_op, 26'd0};
+                        end
+
+                        OP_DELSPR: begin
+                            spr_we         <= 1'b1;
+                            spr_write_addr <= id_spr;
+                            spr_write_data <= 32'd0;
+                        end
+
+                        OP_MOVSPR: begin
+                            spr_we         <= 1'b1;
+                            spr_write_addr <= id_spr;
+                            spr_write_data <= {spr_read_data[31:24], campo_a, campo_b, spr_read_data[6:0]};
+                        end
+
+                        OP_PDRSPR: begin
+                            spr_we         <= 1'b1;
+                            spr_write_addr <= id_spr;
+                            spr_write_data <= {spr_read_data[31], campo_op, spr_read_data[25:0]};
+                        end
+
+                        OP_INVSPR: begin
+                            spr_we         <= 1'b1;
+                            spr_write_addr <= id_spr;
+                            spr_write_data <= {spr_read_data[31:26], campo_op[1], campo_op[0], spr_read_data[23:0]};
+                        end
+
+                        OP_PRISPR: begin
+                            spr_we         <= 1'b1;
+                            spr_write_addr <= id_spr;
+                            spr_write_data <= {spr_read_data[31:7], campo_op, spr_read_data[1:0]};
+                        end
+
+                        // ================= POLIGONOS =================
+                        // registro: [31] ativo | [30:28] forma | [27:20] cor | [19] esp_h
+                        //           [18] esp_v | [17:9] X | [8:1] Y | [0] livre
+                        // tamanho (banco separado): [16:8] W | [7:0] H
+                        OP_INSPOL: begin
+                            // nao mexe no tamanho: um TAMPOL enviado antes continua valendo
+                            poly_we         <= 1'b1;
+                            poly_write_addr <= id_pol;
+                            poly_write_data <= {1'b1, campo_op[2:0], campo_b, 20'd0};
+                        end
+
+                        OP_DELPOL: begin
+                            poly_we         <= 1'b1;
+                            poly_write_addr <= id_pol;
+                            poly_write_data <= 32'd0;
+                            // zera tambem o tamanho (0x0), igual ao reset: o proximo INSPOL
+                            // neste ID so aparece depois de um TAMPOL
+                            poly_tam_we     <= 1'b1;
+                            poly_tam_addr   <= id_pol;
+                            poly_tam_data   <= 17'd0;
+                        end
+
+                        OP_MOVPOL: begin
+                            poly_we         <= 1'b1;
+                            poly_write_addr <= id_pol;
+                            poly_write_data <= {poly_read_data[31:18], campo_a, campo_b, poly_read_data[0]};
+                        end
+
+                        OP_COLPOL: begin
+                            poly_we         <= 1'b1;
+                            poly_write_addr <= id_pol;
+                            poly_write_data <= {poly_read_data[31:28], campo_b, poly_read_data[19:0]};
+                        end
+
+                        OP_INVPOL: begin
+                            poly_we         <= 1'b1;
+                            poly_write_addr <= id_pol;
+                            poly_write_data <= {poly_read_data[31:20], campo_op[1], campo_op[0], poly_read_data[17:0]};
+                        end
+
+                        OP_TAMPOL: begin
+                            poly_tam_we   <= 1'b1;
+                            poly_tam_addr <= id_pol;
+                            poly_tam_data <= {campo_a, campo_b};
+                        end
+
+                        // ================= INVALIDO =================
+                        default: begin
+                            // instrucao descartada; o registrador de status guarda o erro
+                            opcode_invalido <= 1'b1;
+                        end
+                    endcase
+                end
+
+                // ------------------------------------------------------
+                ESPERA_VBLANK: begin
+                    if (vblank_start_pulse)
+                        estado <= BUSCA;
+                end
+
+                default: estado <= BUSCA;
+            endcase
+        end
+    end
+
+endmodule
