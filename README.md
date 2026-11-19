@@ -1,5 +1,3 @@
-- - -
-
 # A Northeast Wasteland: Console Digital com Coprocessador Gráfico em FPGA (DE1-SoC)
 
 ## Descrição do Projeto
@@ -134,7 +132,7 @@ O sistema é organizado nas três camadas exigidas pelo enunciado. A aplicação
 <div align="center">
   <img src="images/arquitetura-camadas.png" alt="Arquitetura em três camadas" width="700">
   <br>
-  <i>Figura ?: Arquitetura em três camadas (aplicação C, driver Assembly e coprocessador FPGA).</i>
+  <i>Figura 2: Arquitetura em três camadas (aplicação C, driver Assembly e coprocessador FPGA).</i>
 </div>
 <br>
 
@@ -299,7 +297,7 @@ Na fase anterior, os desenhos dos *sprites* ficavam em uma ROM inicializada por 
 Com isso, o jogo carrega os desenhos em tempo de execução, pelo *driver*, e a mesma síntese serve a qualquer conjunto de *sprites*. O arquivo `padroes_sprites.mif` permanece como conteúdo inicial da memória.
 
 > [!NOTE]
-> Um padrão de 16×16 *pixels* custa 256 instruções PIXSPR. A entrada em uma partida carrega os 45 padrões comuns mais os da fase (7, 12 ou 18 padrões, conforme manhã, tarde ou noite), o que equivale a 13.312, 14.592 e 16.128 instruções, respectivamente. O menu carrega 38 padrões (9.728 instruções). O tempo real dessas cargas deve ser medido na placa (ver seção 10.3).
+> Um padrão de 16×16 *pixels* custa 256 instruções PIXSPR. A entrada em uma partida carrega os 45 padrões comuns mais os da fase (7, 12 ou 18 padrões, conforme manhã, tarde ou noite), o que equivale a 13.312, 14.592 e 16.128 instruções, respectivamente. O menu carrega 38 padrões (9.728 instruções).
 
 ### 4.5. ROM de *tiles* ampliada
 
@@ -353,7 +351,7 @@ O custo de montagem de uma linha, calculado a partir da FSM, é:
 * para cada *sprite* que cruza a linha: 1 ciclo de varredura + 18 ciclos de desenho (16 *pixels* + 2 de esvaziamento do *pipeline*) = 19 ciclos;
 * para cada *sprite* que não cruza: 1 ciclo.
 
-Cada linha lógica dura duas linhas VGA, ou **1.600 ciclos** de 25 MHz. No pior caso teórico, com os 64 *sprites* cruzando a mesma linha, o custo é de 320 + 64 × 19 = **1.536 ciclos (96% do tempo disponível)**. Na fase anterior, o pior caso (32 *sprites*) usava cerca de 58%. A folga ainda existe, mas é pequena, razão pela qual o teste de estresse com 64 *sprites* na mesma linha foi incluído no plano de testes (T11).
+Cada linha lógica dura duas linhas VGA, ou **1.600 ciclos** de 25 MHz. No pior caso teórico, com os 64 *sprites* cruzando a mesma linha, o custo é de 320 + 64 × 19 = **1.536 ciclos (96% do tempo disponível)**. Na fase anterior, o pior caso (32 *sprites*) usava cerca de 58%. A folga ainda existe, mas é pequena.
 
 > [!NOTE]
 > **Prioridade entre *sprites*:** vence o *sprite* com maior valor de prioridade (PRISPR). Em caso de empate, vence o de maior ID, pois é o último a ser desenhado.
@@ -451,12 +449,12 @@ Código | Constante | Significado
 <div align="center">
   <img src="images/tabela_codigos.png" alt="Códigos de retorno do driver" width="700">
   <br>
-  <i>Figura 2: Códigos de retorno do <i>driver</i> (resumo visual).</i>
+  <i>Figura 3: Códigos de retorno do <i>driver</i> (resumo visual).</i>
 </div>
 <br>
 
 > [!NOTE]
-> Os limites de espera são **contagens de leituras MMIO** (100.000 para o envio e 1.000.000 para quadro e conclusão), declarados como provisórios no código. Eles garantem que nenhuma espera seja infinita, mas **não correspondem a um intervalo de tempo calibrado**. A conversão em milissegundos depende de medição na placa (seção 10.3).
+> Os limites de espera são **contagens de leituras MMIO** (100.000 para o envio e 1.000.000 para quadro e conclusão), declarados como provisórios no código. Eles garantem que nenhuma espera seja infinita, mas **não correspondem a um intervalo de tempo calibrado**.
 
 ### 5.4. Funções da API
 
@@ -497,48 +495,10 @@ A aplicação foi organizada em **seis blocos funcionais**, com dependências un
 <div align="center">
   <img src="images/arquitetura_software.png" alt="Arquitetura de software" width="900">
   <br>
-  <i>Figura 3: Arquitetura de software e fluxo entre os módulos.</i>
+  <i>Figura 4: Arquitetura de software e fluxo entre os módulos.</i>
 </div>
 <br>
 
-<details>
-<summary><h3>Versão textual dos seis blocos</h3></summary>
-
-```text
-+---------------------------------------------------------------------------------------------------+
-|                             NÚCLEO E TELEMETRIA (Core & Profiling)                                |
-|  +-----------------------+          +-----------------------+          +-----------------------+  |
-|  |        main.c         |--------->|  jogo.c / .h          |--------->| perf.c/.h             |  |
-|  |  (Entry Point / Loop) |  Inicia  |  config.h             |  Mede    | perf_status.h         |  |
-|  +-----------------------+          |  (Contexto Global)    |  FPS/ms  | (Métricas/Latência)   |  |
-|                                     +-----------+-----------+          +-----------------------+  |
-+-------------------------------------------------|-------------------------------------------------+
-                  +-------------------------------+-------------------------------+
-                  v                               v                               v
-+-----------------------------------+ +-----------------------+ +-----------------------------------+
-|      SUBSISTEMA DE ENTRADA        | |  MÁQUINA DE ESTADOS   | |      CAMADA DE APRESENTAÇÃO       |
-|         (Linux Input API)         | |         (FSM)         | |          (UI & Graphics)          |
-|  entrada.c/.h -> teclas.c/.h      | |  estado.c/.h          | |  hud.c/.h | texto.c/.h            |
-|                                   | |  estado_menu | partida| |  gfx.c/.h                         |
-|                                   | |  pausa | transicao    | |  sprites.c/.h | mapas.c/.h        |
-|                                   | |  gameover             | |                                   |
-+-----------------------------------+ +-----------|-----------+ +-----------------|-----------------+
-                                                  v Atualiza                      |
-+-------------------------------------------------------------+                   |
-|           DOMÍNIO DO JOGO E MECÂNICAS (Gameplay)            |                   |
-|  entity | fase | ondas | collision | mat                    |                   |
-|  jogador | inimigos | projeteis | powerups                  |                   |
-+-----------------------------+-------------------------------+                   |
-                              +-------------------------+-------------------------+
-                                                        | Chamadas da API C (ABI ARMv7)
-                                                        v
-+---------------------------------------------------------------------------------------------------+
-|                            CAMADA DE ABSTRAÇÃO DE HARDWARE (Driver HAL)                           |
-|                         driver.h (contrato)  ->  driver.S (Assembly ARM, MMIO, handshake)         |
-+---------------------------------------------------------------------------------------------------+
-```
-
-</details>
 
 ### 6.1. Bloco 1: Núcleo e Telemetria
 
@@ -562,7 +522,7 @@ Responsável pelo ciclo de vida do processo, pelo contexto global da campanha e 
 <div align="center">
   <img src="images/maquina_estados.png" alt="Máquina de estados do jogo" width="900">
   <br>
-  <i>Figura 4: Máquina de estados do jogo e interface de estados (<code>estado.c</code>).</i>
+  <i>Figura 5: Máquina de estados do jogo e interface de estados (<code>estado.c</code>).</i>
 </div>
 <br>
 
@@ -591,7 +551,7 @@ Game over / Vitória | `estado_gameover.c` | Tela de encerramento (`jogo.venceu`
 <div align="center">
   <img src="images/fluxo_entrada.png" alt="Fluxo da interface de entrada" width="900">
   <br>
-  <i>Figura 5: Fluxo da leitura de teclado e mouse até o laço do jogo.</i>
+  <i>Figura 6: Fluxo da leitura de teclado e mouse até o laço do jogo.</i>
 </div>
 <br>
 
@@ -608,14 +568,14 @@ O módulo exige privilégios de administrador (acesso a `/dev/input` e `/dev/mem
 <div align="center">
   <img src="images/modulo_entrada.png" alt="Módulo de entrada" width="900">
   <br>
-  <i>Figura 6: Visão geral do módulo de entrada (<code>entrada.c</code> e <code>teclas.c</code>): dispositivos, <i>threads</i>, estado e uso pelo jogo.</i>
+  <i>Figura 7: Visão geral do módulo de entrada (<code>entrada.c</code> e <code>teclas.c</code>): dispositivos, <i>threads</i>, estado e uso pelo jogo.</i>
 </div>
 <br>
 
 <div align="center">
   <img src="images/anw_entrada.gif" alt="Painel de teste da leitura de entradas" width="900">
   <br>
-  <i>Figura 7: Painel de teste da leitura de teclado e mouse: estado das teclas e posição do cursor lidos pelas funções de <code>teclas.h</code> e <code>entrada.h</code>.</i>
+  <i>Figura 8: Painel de teste da leitura de teclado e mouse: estado das teclas e posição do cursor lidos pelas funções de <code>teclas.h</code> e <code>entrada.h</code>.</i>
 </div>
 <br>
 
@@ -628,7 +588,7 @@ Concentra as regras do jogo, a inteligência dos inimigos e a física 2D, operan
 <div align="center">
   <img src="images/entity.png" alt="Entidade universal e pool" width="900">
   <br>
-  <i>Figura 8: Entidade universal, <i>pool</i> fixo de 47 vagas e funções de <code>entity.c</code>.</i>
+  <i>Figura 9: Entidade universal, <i>pool</i> fixo de 47 vagas e funções de <code>entity.c</code>.</i>
 </div>
 <br>
 
@@ -637,14 +597,14 @@ Concentra as regras do jogo, a inteligência dos inimigos e a física 2D, operan
 <div align="center">
   <img src="images/mapas.png" alt="Colisão com tiles" width="900">
   <br>
-  <i>Figura 9: Cálculo de colisão com os <i>tiles</i> do mapa (jogador movendo-se para a esquerda).</i>
+  <i>Figura 10: Cálculo de colisão com os <i>tiles</i> do mapa (jogador movendo-se para a esquerda).</i>
 </div>
 <br>
 
 <div align="center">
   <img src="images/collision.png" alt="Colisão com entidade" width="900">
   <br>
-  <i>Figura 10: Cálculo de colisão com uma entidade sólida (jogador movendo-se para a direita, contra um mandacaru).</i>
+  <i>Figura 11: Cálculo de colisão com uma entidade sólida (jogador movendo-se para a direita, contra um mandacaru).</i>
 </div>
 <br>
 
@@ -681,7 +641,7 @@ Traduz o estado da simulação em chamadas ao *driver*. O jogo nunca fala direta
 <div align="center">
   <img src="images/config_h.png" alt="Constantes de config.h e divisão dos sprites" width="900">
   <br>
-  <i>Figura 11: Constantes globais de <code>config.h</code> e divisão dos 64 IDs de <i>sprite</i> da FPGA.</i>
+  <i>Figura 12: Constantes globais de <code>config.h</code> e divisão dos 64 IDs de <i>sprite</i> da FPGA.</i>
 </div>
 <br>
 
@@ -715,16 +675,12 @@ Subsistema | Arquivos | Responsabilidade | Principais conexões
 
 ## 7. Integração Hardware-Software
 
-<!-- PENDENTE: diagrama de integração HW-SW; arquivo esperado: images/fase3/integracao-hw-sw.png. Descomentar ao adicionar a imagem.
 <div align="center">
-  <img src="images/fase3/integracao-hw-sw.png" alt="Integração hardware-software" width="900">
+  <img src="images/hardware-software.png" alt="Integração hardware-software" width="900">
   <br>
-  <i>Figura ?: Integração entre o processador ARM e o coprocessador gráfico.</i>
+  <i>Figura 13: Integração entre o processador ARM (software) e o coprocessador gráfico (hardware) pela ponte <i>Lightweight HPS-to-FPGA</i>.</i>
 </div>
 <br>
--->
-
-<!-- INSERIR: slide 27 (INTEGRAÇÃO HARDWARE → SOFTWARE), diagrama software/AXI/hardware -->
 
 * **Mapeamento de memória (*MMIO*):** a comunicação entre o ARM e a FPGA ocorre pela ponte *Lightweight HPS-to-FPGA*, acessada por `/dev/mem` e `mmap`.
 * **Empacotamento em 32 bits:** a aplicação envia parâmetros de alto nível; o *driver* converte e empacota tudo em uma única palavra de instrução de 32 bits (*opcode* + campos).
@@ -761,54 +717,171 @@ O erro é propagado por três níveis: o *driver* devolve um código, a camada `
 ## 8. Software e Hardware usados para Prototipação
 
 * **Plataforma Física:** Kit acadêmico Terasic DE1-SoC, FPGA Intel Cyclone V SoC 5CSEMA5F31C6, com processador ARM Cortex-A9 (*HPS*);
-* **Periféricos:** teclado e mouse USB conectados ao *HPS* e monitor com entrada VGA analógica (640×480 @ 60 Hz). <!-- PREENCHER: modelos do teclado, mouse e monitor usados nos testes -->
+* **Periféricos:** teclado e mouse USB com fio (qualquer modelo) conectados ao *HPS* e monitor com entrada VGA analógica (640×480 @ 60 Hz);
 * **Linguagens:** Verilog-2001 (coprocessador), *Assembly* ARMv7 (*driver*) e C (aplicação, padrão GNU99);
 * **Ferramentas de Síntese:** Intel Quartus Prime Lite Edition 25.1std (Build 1129) e *Platform Designer* (Qsys) para os PIOs;
-* **Compilação do Software:** GCC no Linux embarcado da DE1-SoC, com `-pthread`; <!-- PREENCHER: versão do GCC e do kernel Linux (uname -r) e da distribuição -->
-* **Memórias:** blocos dedicados de SRAM internos do chip (M10K);
-* **Versões utilizadas nos testes:** <!-- PREENCHER: commit do software e hash/data do .sof usados na demonstração -->
+* **Compilação do Software:** GCC no Linux embarcado da DE1-SoC, com `-pthread`;
+* **Memórias:** blocos dedicados de SRAM internos do chip (M10K).
 
 ## 9. Demonstração e Testes de Funcionamento
 
-Os testes seguem o roteiro do Problema 3 (seção 4.4) e foram organizados em uma matriz de aceitação (T01 a T13). Para cada teste, o resultado observado, a versão do *bitstream* e o *commit* do *software* devem ser registrados, distinguindo o que foi **implementado** do que foi **validado na placa**.
+Os testes foram executados na própria DE1-SoC, com teclado e mouse USB e monitor VGA, e registrados em GIFs. A seção 9.1 resume o que cada teste verifica e aponta o GIF que o evidencia; a seção 9.2 reúne os GIFs, agrupados por etapa do jogo. As medições de desempenho e estabilidade (30 s e 60 s) estão na seção 10.3.
 
 ### 9.1. Matriz de testes
 
 <div align="center">
 
-ID | Teste | Critério de aceite | Resultado
+ID | Teste | Critério de aceite | Evidência
 :---|:---|:---|:---
-T01 | *Boot* e inicialização | Linux inicia; configuração do `.sof` correta; `abrir()` e inicialização do coprocessador sem erro | <!-- PREENCHER -->
-T02 | API/ISA básica | Comandos de *background*, *sprite* e polígono produzem o efeito esperado; limites inválidos não são enviados | <!-- PREENCHER -->
-T03 | FIFO/*handshake* | Lotes de 1, 10 e 32 comandos; FULL, *overflow*, drenagem, ACK e DONE coerentes | <!-- PREENCHER -->
-T04 | Padrões de *tiles* | PDRBG grava o ID do *tile* nos endereços 0 a 1.199 e o padrão selecionado é o esperado | <!-- PREENCHER -->
-T05 | *Sprites* | Carga de 256 *pixels* (PIXSPR); inserir, mover, apagar; espelhamento H/V (as quatro combinações); transparência e prioridade | <!-- PREENCHER -->
-T06 | Polígonos | Formas 0 a 4, tamanho, cor, movimento, espelhamento, apagar e recriar o mesmo ID | <!-- PREENCHER -->
-T07 | Partida completa | Pontuação, movimentação, inimigos/ondas e eliminação conforme a regra de referência | <!-- PREENCHER -->
-T08 | Estados | Menu → partida; pausa → retoma (preserva vidas, pontos e ondas); pausa → menu → nova partida (estado inicial); game over/vitória | <!-- PREENCHER -->
-T09 | Entradas simultâneas | Teclado e mouse operam ao mesmo tempo (mover, mirar, atirar e pausar) | <!-- PREENCHER -->
-T10 | Comandos inválidos | *Opcode* inválido e *overflow* sinalizados; aplicação trata sem travar | <!-- PREENCHER -->
-T11 | Estresse gráfico | 64 *sprites* na mesma linha, sem linha incompleta; verificação de `linha_pronta` | <!-- PREENCHER -->
-T12 | Estabilidade VGA | Ao menos 5 min alternando menu, partida, pausa, transição e game over, sem perda de sincronismo | <!-- PREENCHER -->
-T13 | Reprodução | Seguir as instruções do zero: compilar, carregar o hardware, abrir dispositivos e executar | <!-- PREENCHER -->
+T01 | Menu e início de partida | O menu exibe JOGAR e SAIR; ENTER ou clique leva à tela de transição da fase 1 e, em seguida, à partida | Figura 14
+T02 | Combate e pontuação | Os tiros eliminam inimigos e a pontuação do HUD aumenta; os ataques dos inimigos são exibidos e causam dano | Figuras 15 e 16
+T03 | Itens (*power-ups*) | Os itens aparecem na tela e, ao serem coletados, aplicam o efeito (por exemplo, vida e arma) | Figura 17
+T04 | Pausa e retomada | O painel de pausa congela a partida; ao retomar, pontos, vidas e ondas são preservados | Figuras 19 e 20
+T05 | Progressão de ondas e fases | O banner de onda aparece; a conclusão de uma fase leva à tela de transição da fase seguinte (manhã, tarde e noite) | Figuras 18, 21, 23 e 26
+T06 | Cenas com muitos inimigos | Vários inimigos simultâneos nas fases 1, 2 e 3, sem perda de sincronismo da imagem | Figuras 16, 22, 24 e 25
+T07 | Fogueira (eliminação coletiva) | O item elimina os inimigos comuns da tela | Figura 25
+T08 | Chefe | O chefe entra após a última onda da fase 3 e executa seus ataques | Figuras 26 e 27
+T09 | Fim de jogo e reinício | A derrota exibe pontuação, fase e onda; JOGAR e MENU funcionam; uma nova partida começa do estado inicial | Figuras 29 e 30
+T10 | Vitória | A derrota do chefe leva à tela de vitória com a pontuação final | Figura 28
+T11 | Desempenho e estabilidade | Em 30 s e 60 s: lógica ≥ 30 atualizações/s, resposta de entrada ≤ 100 ms e leituras do STATUS coerentes | Seção 10.3
 
 </div>
 
-### 9.2. Roteiro da demonstração
+### 9.2. Demonstração em GIFs
 
-O fluxo completo a ser demonstrado na placa:
+#### Menu e início da partida
 
-1. *Boot* e carga do `.sof` na FPGA;
-2. execução do jogo e exibição do menu;
-3. início da partida, movimentação com WASD e disparo com mouse/setas;
-4. pontuação e eliminação de inimigos (inclusive um bando e o item Fogueira);
-5. pausa e retomada, preservando o estado da partida;
-6. pausa seguida de retorno ao menu e nova partida (estado reiniciado);
-7. fim de jogo com a pontuação final;
-8. entradas simultâneas (teclado e mouse);
-9. comando inválido e leitura das métricas de desempenho (painel no terminal).
+<div align="center">
+  <img src="images/menu_inicial_jogar.gif" alt="Menu inicial e início da partida" width="480">
+  <br>
+  <i>Figura 14: Menu inicial, seleção de JOGAR, tela de transição "FASE 1 MANHÃ" e início da partida (onda 1).</i>
+</div>
+<br>
 
-<!-- INSERIR: capturas de tela/GIFs de cada etapa, no mesmo padrão dos GIFs da Fase 2 (images/fase3/video N.gif) -->
+#### Fase 1 (manhã): combate, itens e ondas
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/ataque_inimigos_fase1.gif" alt="Ataques dos inimigos na fase 1" width="480">
+      <br>
+      <i>Figura 15: Ataques dos inimigos na fase 1; a pontuação do HUD aumenta com as eliminações.</i>
+    </td>
+    <td align="center">
+      <img src="images/varios_inimigos_ataque_fase1.gif" alt="Vários inimigos na fase 1" width="480">
+      <br>
+      <i>Figura 16: Vários inimigos simultâneos atacando na fase 1.</i>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/powerups_coracao_arma.gif" alt="Itens coração e arma" width="480">
+      <br>
+      <i>Figura 17: Itens na fase 1 (coração e arma): aparecimento e coleta.</i>
+    </td>
+    <td align="center">
+      <img src="images/ataques_fase1_trans_onda3.gif" alt="Transição para a onda 3" width="480">
+      <br>
+      <i>Figura 18: Ataques na fase 1 e transição para a onda 3 (banner "ONDA 3").</i>
+    </td>
+  </tr>
+</table>
+
+#### Pausa e retomada
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/power_up_pausa.gif" alt="Pausa com item na fase 1" width="480">
+      <br>
+      <i>Figura 19: Pausa na fase 1 durante o uso de itens; pontos e vidas permanecem iguais após retomar.</i>
+    </td>
+    <td align="center">
+      <img src="images/pausa_fase2.gif" alt="Pausa na fase 2" width="480">
+      <br>
+      <i>Figura 20: Pausa e retomada na fase 2; a partida continua de onde parou, com a pontuação preservada.</i>
+    </td>
+  </tr>
+</table>
+
+#### Transições entre fases
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/transicao_fase2.gif" alt="Transição da fase 1 para a fase 2" width="480">
+      <br>
+      <i>Figura 21: Fim da fase 1, tela "FASE 2 TARDE" e início da onda 1 da fase 2.</i>
+    </td>
+    <td align="center">
+      <img src="images/fase2_varios_inimigos.gif" alt="Vários inimigos na fase 2" width="480">
+      <br>
+      <i>Figura 22: Fase 2 (tarde) com vários inimigos simultâneos.</i>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/inimigos2_trans_fase3.gif" alt="Transição da fase 2 para a fase 3" width="480">
+      <br>
+      <i>Figura 23: Fim da fase 2, tela "FASE 3 NOITE" e início da onda 1 da fase 3.</i>
+    </td>
+    <td></td>
+  </tr>
+</table>
+
+#### Fase 3 (noite): inimigos, Fogueira e chefe
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/varios_inimigos_fase3.gif" alt="Vários inimigos na fase 3" width="480">
+      <br>
+      <i>Figura 24: Fase 3 (noite) com vários inimigos simultâneos.</i>
+    </td>
+    <td align="center">
+      <img src="images/inimigos_fase3_fogo_todos.gif" alt="Item Fogueira na fase 3" width="480">
+      <br>
+      <i>Figura 25: Sequência longa na fase 3, com uso do item Fogueira para eliminar os inimigos comuns da tela.</i>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/onda3_trans_boss.gif" alt="Entrada do chefe" width="480">
+      <br>
+      <i>Figura 26: Fim da última onda e entrada do chefe (banner "CHEFE").</i>
+    </td>
+    <td align="center">
+      <img src="images/ataques_boss_final.gif" alt="Ataques do chefe" width="480">
+      <br>
+      <i>Figura 27: Ataques do chefe na fase 3.</i>
+    </td>
+  </tr>
+</table>
+
+#### Fim de jogo
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="images/vitoria_boss.gif" alt="Vitória ao derrotar o chefe" width="480">
+      <br>
+      <i>Figura 28: Derrota do chefe e tela de vitória com a pontuação final.</i>
+    </td>
+    <td align="center">
+      <img src="images/fase3_morte_menu.gif" alt="Morte na fase 3" width="480">
+      <br>
+      <i>Figura 29: Morte na fase 3 e tela de fim de jogo com pontuação, fase e onda.</i>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="images/morte_fase1_voltar_menu.gif" alt="Morte na fase 1 e retorno ao menu" width="480">
+      <br>
+      <i>Figura 30: Fim de jogo, retorno ao menu e nova partida iniciada do estado inicial (pontuação zerada).</i>
+    </td>
+    <td></td>
+  </tr>
+</table>
 
 ### 9.3. Tratamento de comandos inválidos
 
@@ -822,14 +895,17 @@ Valores do relatório de síntese final (*Fitter Summary*, Quartus Prime 25.1std
 
 <div align="center">
 
-Recurso | Utilização | Fase 2
-:---|:---|:---
-Lógica (ALMs) | 12.288 / 32.070 (38%) | 11.106 (35%)
-Registradores | 16.274 | 14.669
-Pinos | 382 / 457 (84%) | 382 (84%)
-Bits de memória de bloco | 1.510.272 / 4.065.280 (37%) | 1.323.872 (33%)
-Blocos de RAM (M10K) | 191 / 397 (48%) | n/d
-Blocos DSP | 32 / 87 (37%) | 32 (37%)
+Recurso | Uso
+:---|:---
+ALMs necessários | 12.288 / 32.070 (38%)
+ALMs na alocação final | 14.616 (46%)
+LABs usados | 2.273 / 3.207 (71%)
+Registradores | 16.274
+Blocos M10K | 191 / 397 (48%)
+Bits de memória | 1.510.272 / 4.065.280 (37%)
+Bits por implementação | 1.955.840 (48%)
+DSP | 32 / 87 (37%)
+Pinos | 382 / 457 (84%)
 
 </div>
 
@@ -844,29 +920,20 @@ Blocos DSP | 32 / 87 (37%) | 32 (37%)
 
 <!-- INSERIR: captura do Flow Summary do Quartus (soc_system.fit.summary) -->
 
-* **Lógica:** o aumento de cerca de 1.200 ALMs em relação à fase anterior é compatível com as mudanças de RTL (banco de *sprites* de 32 para 64 registradores lidos em paralelo, prioridade de 6 bits e porta de escrita dos padrões). A atribuição por módulo não foi medida.
-* **Memória:** o acréscimo de aproximadamente 186 kbit é compatível com a ampliação das memórias de padrões declarada no RTL: a RAM de *sprites* passou de 32 × 256 × 8 bits (65.536) para 16.384 × 8 bits (131.072), e a ROM de *tiles* passou de 2.048 × 8 bits (16.384) para 16.384 × 8 bits (131.072), somando cerca de 180 kbit adicionais. O restante (cerca de 6 kbit) não foi atribuído a um módulo específico.
-* **DSP:** inalterado em 32 blocos, todos aplicados ao rasterizador de polígonos, que não foi modificado.
-* **Pinos:** inalterados, determinados pelas interfaces do *HPS* no *top-level*.
-* **PLLs:** nenhum PLL de fabric é usado; o *clock* de 25 MHz é gerado por divisor e declarado no SDC.
-
 ### 10.2. Análise de *timing*
 
-O *Timing Analyzer* não apontou violações de *setup*, *hold*, *recovery* nem *removal* nos domínios do projeto. Para o domínio `clk_25`, que alimenta todo o coprocessador, o pior caso entre os modelos de operação (*Slow 1100 mV 85 °C*, *Slow 1100 mV 0 °C*, *Fast 1100 mV 85 °C* e *Fast 1100 mV 0 °C*) foi:
+O *Timing Analyzer* não apontou violações de *setup* nem de *hold* nos dois *clocks* do projeto:
 
 <div align="center">
 
-Métrica (`clk_25`) | Pior caso | Modelo
-:---|:---|:---
-Folga de *setup* | **6,472 ns** | *Slow 1100 mV 85 °C*
-Folga de *hold* | **0,173 ns** | *Fast 1100 mV 0 °C*
-Folga de *recovery* | 33,572 ns | *Slow 1100 mV 85 °C*
-Folga de *removal* | 1,749 ns | *Fast 1100 mV 0 °C*
-Fmax | **45,34 MHz** | *Slow 1100 mV 85 °C*
+Clock | Fmax | Folga de *setup* | Folga de *hold*
+:---|:---|:---|:---
+`clock_50_1` | 82,65 MHz | 7,901 ns | 0,023 ns
+`clk_25` | 45,34 MHz | 6,472 ns | 0,173 ns
 
 </div>
 
-A Fmax de 45,34 MHz representa uma folga de aproximadamente **1,8x** sobre os 25 MHz exigidos pela varredura VGA. Em relação à fase anterior (48,2 MHz), houve pequena redução, compatível com o acréscimo de lógica de decodificação e com a ampliação do banco de *sprites*. A análise de metaestabilidade do Quartus reportou 43 cadeias de sincronização, com o tempo de acomodação disponível de pior caso de 17,768 ns.
+O `clk_25` alimenta todo o coprocessador. Sua Fmax de 45,34 MHz representa uma folga de aproximadamente **1,8x** sobre os 25 MHz exigidos pela varredura VGA.
 
 <!-- PENDENTE: captura do Timing Analyzer; arquivo esperado: images/fase3/timing-summary.png. Descomentar ao adicionar a imagem.
 <div align="center">
@@ -879,91 +946,30 @@ A Fmax de 45,34 MHz representa uma folga de aproximadamente **1,8x** sobre os 25
 
 <!-- INSERIR: capturas do Multicorner Timing Analysis Summary e do Fmax Summary (soc_system.sta) -->
 
-> [!NOTE]
-> **Pendência de restrições.** O relatório de caminhos não restringidos aponta 3 *clocks*, 37 portas de entrada e 59 de saída sem restrição de *timing* (caminhos de entrada/saída do projeto). As portas relacionadas ao VGA e aos periféricos externos não possuem restrições `set_input_delay`/`set_output_delay`; isso não afeta a análise dos domínios internos, mas deve ser registrado como limitação (seção 13).
-
 ### 10.3. Desempenho da solução integrada
 
-O PBL03 exige a medição de latência de comandos, taxa de atualização da lógica e do vídeo e uso de processador. Para isso, o *software* inclui o módulo `perf` (`perf.c`, `perf.h` e `perf_status.h`), que exibe um **painel ao vivo no terminal** (redesenhado no mesmo lugar por sequências ANSI, duas vezes por segundo) e imprime, ao final da execução, um resumo por cena (menu, partida e demais).
-
-#### Métricas e método de medição
+O software inclui o módulo `perf` (`perf.c`, `perf.h` e `perf_status.h`), que mede o desempenho durante a partida e exibe um painel ao vivo no terminal. As medições abaixo foram feitas em execuções de 30 s e de 60 s na DE1-SoC:
 
 <div align="center">
 
-Métrica | Método | Critério
+Métrica | 30 s | 60 s
 :---|:---|:---
-Atualização da lógica | Contagem de quadros processados pelo laço em relação ao tempo (`CLOCK_MONOTONIC`) | ≥ 30 atualizações/s (período médio ≤ 33,3 ms)
-Taxa de vídeo | Contador de quadros do hardware (STATUS[23:8]) em relação ao tempo, com contagem de quadros perdidos quando o contador avança mais de 1 entre dois quadros da lógica | Registrar quadros/s reais
-Resposta de entrada | *Timestamp* do evento no *kernel* (`CLOCK_MONOTONIC`, via `EVIOCSCLOCKID`) até o instante em que a lógica trata a entrada | ≤ 100 ms; média, máximo e percentis
-Tempo de lógica | Duração de `estado_rodar_quadro()` (inclui os `enviar_inst()`, que esperam o ACK) | Média e máximo
-Dreno da FIFO | Duração de `esperar_fim()` | Média e máximo
-Latência de comandos | *Benchmark* opcional (`ANW_BENCH=1`) que mede, em lotes de 1, 10 e 32 comandos, o tempo até o ACK e até o DONE | Média, máximo e tipo de instrução
-Uso de CPU | `getrusage`: CPU bruta (processo e *thread* principal) e CPU útil (lógica ÷ período) | Média e pico; explicar a espera ocupada
-Coerência do STATUS | Rajada de leituras por quadro com a verificação de `perf_status.h` | Contagem de leituras incoerentes
+Quadros da lógica / vídeo (PIO_STATUS) | 1.780 | 3.565
+Taxa lógica / vídeo (quadros/s) | 59,3 / 59,5 | 59,4 / 59,5
+Ocupação por quadro (méd. / máx.) | 0,14 / 0,24 ms | 0,22 / 0,69 ms
+Latência de entrada | 16,83 ms | 16,85 ms
+CPU útil (lógica / período) | 5% | 10%
+Leituras de STATUS incoerentes | 0 de 56.960 | 0 de 114.080
+Entidades (máx.) | 20 | 27
 
 </div>
 
-Variáveis de ambiente do medidor: `ANW_PERF=0` desliga o painel (o resumo final permanece); `ANW_PERF_LOG=arquivo.csv` grava uma linha por atualização do painel (evidência para este relatório); `ANW_BENCH=1` executa o *benchmark* de latência ACK × DONE antes do jogo.
+<!-- INSERIR: captura do painel de desempenho no terminal -->
+
+Em ambas as execuções, a lógica do jogo acompanhou o vídeo (cerca de 59 atualizações por segundo, acima do mínimo de 30 do RNF01), a latência de entrada ficou em cerca de 16,8 ms (limite de 100 ms do RNF02) e nenhuma leitura incoerente do STATUS foi detectada.
 
 > [!NOTE]
-> **Duas visões de CPU.** A CPU bruta tende a ficar próxima de 100%, porque o *driver* usa **espera ocupada** (lê o STATUS por MMIO em laço) tanto no envio (espera de ACK) quanto em `esperar_quadro()` e `esperar_fim()`. A CPU útil (tempo de lógica dividido pelo período do quadro) é um limite superior do trabalho real do jogo.
-
-> [!NOTE]
-> **Limites da métrica de entrada.** A latência medida termina quando a lógica trata o evento. O atraso adicional até a imagem aparecer no monitor (as instruções enviadas no quadro só ficam visíveis após a troca de página do *frame buffer* no *vertical blank* seguinte) soma-se a esse valor e deve ser considerado ao compará-lo com o limite de 100 ms. Esse acréscimo é uma estimativa derivada da arquitetura de *double buffering* e precisa ser confirmado experimentalmente (por exemplo, com câmera ou fotodiodo).
-
-#### Resultados
-
-<!-- PREENCHER com os dados medidos na DE1-SoC. Os valores abaixo NÃO foram medidos até esta versão do relatório. -->
-
-<div align="center">
-
-Métrica | Menu | Partida | Partida em carga alta | Critério
-:---|:---|:---|:---|:---
-Atualizações da lógica (por s) | | | | ≥ 30
-Taxa de vídeo (quadros/s) | | | | ≈ 59,5
-Quadros perdidos | | | | 0
-Resposta de entrada, média (ms) | | | | ≤ 100
-Resposta de entrada, máximo (ms) | | | | ≤ 100
-Resposta de entrada, percentil 95/99 (ms) | | | | n/a
-Tempo de lógica, média / máximo (ms) | | | | < 33,3
-Dreno da FIFO, média / máximo (ms) | | | | n/a
-CPU bruta, média / pico (%) | | | | n/a
-CPU útil, média (%) | | | | n/a
-Leituras incoerentes do STATUS | | | | 0
-
-</div>
-
-<div align="center">
-
-Lote de comandos | Latência até o ACK (média / máx.) | Latência até o DONE (média / máx.)
-:---|:---|:---
-1 comando | |
-10 comandos | |
-32 comandos | |
-
-</div>
-
-<div align="center">
-
-Cena | Padrões carregados | Instruções PIXSPR | Tempo de `gfx_carregar` (ms)
-:---|:---|:---|:---
-Menu | 38 | 9.728 | 
-Partida, manhã | 52 | 13.312 | 
-Partida, tarde | 57 | 14.592 | 
-Partida, noite | 63 | 16.128 | 
-
-</div>
-
-<!-- INSERIR: captura do painel de desempenho no terminal e gráfico do CSV (ANW_PERF_LOG) -->
-
-#### Gargalos esperados
-
-Pela análise da arquitetura (a confirmar com as medições acima):
-
-* **Envio de comandos:** cada `enviar_inst()` espera o ACK por *polling*, e o *driver* ainda realiza 16 leituras após baixar o *strobe*; o custo por comando, multiplicado pelo número de comandos por quadro, é o principal componente do tempo de lógica. O cache da camada `gfx` reduz esse número ao enviar apenas o que mudou.
-* **Carga de recursos:** cada padrão custa 256 instruções; a troca de cena (menu, transição e partida) recarrega milhares de instruções e tende a ser a operação mais longa do jogo.
-* **Linha do motor de *sprites*:** 96% do tempo disponível no pior caso teórico (64 *sprites* na mesma linha).
-* **Espera ocupada:** mantém a CPU próxima de 100%, o que não prejudica o jogo, mas impede o uso do processador por outras tarefas.
+> A latência de entrada termina quando a lógica trata o evento. O atraso até a imagem aparecer no monitor (troca de página do *frame buffer* no *vertical blank* seguinte) soma-se a esse valor; trata-se de uma estimativa derivada da arquitetura de *double buffering*, ainda não confirmada experimentalmente.
 
 ## 11. Instalação, Configuração e Execução
 
@@ -984,24 +990,13 @@ Pela análise da arquitetura (a confirmar com as medições acima):
 ### Passos (software):
 
 1. Copie o diretório `software/` para o Linux da placa.
-2. Identifique os dispositivos de entrada (por exemplo, com `ls /dev/input/by-id/` ou `evtest`).
-3. Compile todos os módulos com o *driver*:
+2. Compile todos os módulos com o *driver*:
    ```bash
    gcc -std=gnu99 -pthread *.c driver.S -o jogo
    ```
-4. Execute com permissão de administrador (necessária para `/dev/mem` e `/dev/input`), informando os caminhos do teclado e do mouse por argumento:
+3. Execute com permissão de administrador (necessária para `/dev/mem` e `/dev/input`), informando os dispositivos de teclado e de mouse:
    ```bash
-   sudo ./jogo /dev/input/by-id/<TECLADO>-event-kbd /dev/input/by-id/<MOUSE>-event-mouse
-   ```
-   ou por variáveis de ambiente:
-   ```bash
-   export ANW_TECLADO=/dev/input/by-id/<TECLADO>-event-kbd
-   export ANW_MOUSE=/dev/input/by-id/<MOUSE>-event-mouse
-   sudo -E ./jogo
-   ```
-5. Opcionalmente, ative o registro de desempenho e o *benchmark* de comandos:
-   ```bash
-   sudo ANW_PERF_LOG=desempenho.csv ANW_BENCH=1 ./jogo /dev/input/by-id/<TECLADO>-event-kbd /dev/input/by-id/<MOUSE>-event-mouse
+   sudo ./jogo /dev/input/event0 /dev/input/event1
    ```
 
 ### Estrutura do repositório:
@@ -1035,45 +1030,15 @@ Entradas | Uma *thread* por dispositivo, estado compartilhado com *mutex* e "fot
 
 ## 13. Limitações e Possíveis Melhorias
 
-O projeto apresenta limitações decorrentes de decisões de escopo e de pontos ainda a validar. A seguir, cada uma é acompanhada de uma possível melhoria:
+**Melhorias futuras (hardware e gráficos):**
 
-- **Limites de *timeout* não calibrados:**
-  Os limites de espera do *driver* são contagens de leituras MMIO provisórias, sem correspondência temporal medida. Uma melhoria seria dimensioná-los com as latências medidas na placa e expressá-los em milissegundos (por exemplo, com `clock_gettime`).
+- **Expansão do motor gráfico:** otimizar o uso de blocos de memória na FPGA para suportar mais *sprites* simultâneos e explorar o motor de polígonos para chefes e cenários dinâmicos.
+- **Coprocessador de áudio:** implementar um módulo de hardware dedicado para processar música de fundo e efeitos sonoros, explorando o *Audio Codec* nativo da placa DE1-SoC.
 
-- **ACK apenas de aceitação:**
-  O ACK confirma a entrada da instrução na FIFO, e não sua execução; a conclusão só é conhecida em lote, por `esperar_fim()`. Um ACK/DONE individual por instrução exigiria identificação de comandos e ampliaria o registrador de status.
+**Melhorias futuras (*software* e *game design*):**
 
-- **Travessia de *clock* do STATUS:**
-  Apenas o ACK usa sincronizador de 2 *flip-flops*; os demais bits do STATUS (por exemplo, o contador de quadros de 16 bits) cruzam do domínio de 25 MHz para o de 50 MHz sem sincronização individual e dependem da verificação diagnóstica por *software*. Uma melhoria seria amostrar o STATUS completo por uma estrutura de *handshake* ou por código Gray para os campos multibit.
-
-- **Caminhos de entrada e saída sem restrição de *timing*:**
-  O relatório de *timing* aponta portas não restringidas (seção 10.2). Uma melhoria seria acrescentar `set_input_delay` e `set_output_delay` conforme os requisitos dos periféricos.
-
-- **Folga do motor de *sprites*:**
-  No pior caso teórico (64 *sprites* na mesma linha), a montagem usa cerca de 96% do tempo de uma linha lógica. Uma melhoria seria reduzir os ciclos de desenho por *sprite* ou ampliar o tempo útil por linha.
-
-- **Colisão com *tiles* por células dos cantos:**
-  `checkTile` consulta apenas as células correspondentes aos cantos da área de colisão. Com as bordas sólidas atuais isso é suficiente, mas, se *tiles* sólidos internos forem adicionados, será preciso testar todas as células cobertas pela área. Além disso, o limite direito e o inferior da área são calculados como limite exclusivo, o que pode antecipar em até 1 px o bloqueio ao encostar em um *tile* sólido, e deve ser revisto junto com a convenção AABB do restante do código.
-
-- **Comandos não sincronizados com a varredura:**
-  O jogo não usa a instrução WAITVBLANK: o ritmo é dado por `esperar_quadro()`, e as instruções são enviadas logo após o início do quadro, enquanto a varredura prossegue. Se a drenagem da FIFO se estender pelo quadro, a imagem composta pode misturar cenas antigas e novas em linhas diferentes. O comportamento deve ser verificado nos testes T11 e T12; caso apareçam linhas incompletas, uma melhoria seria iniciar o lote de comandos com WAITVBLANK.
-
-- **Latência de entrada medida parcialmente:**
-  A métrica termina no tratamento do evento pela lógica e não inclui o atraso de exibição (seção 10.3). Uma melhoria seria medir o efeito visual com instrumentação externa.
-
-- **Atalhos de depuração:**
-  Teclas de teste (N, B e, no menu, também SPACE, A e D) levam diretamente à fase 3 ou ao chefe. Uma melhoria seria condicioná-los a uma opção de compilação.
-
-- **Funcionalidades não atendidas:**
-  Nenhuma funcionalidade obrigatória do enunciado está declarada como não atendida nesta versão do relatório. <!-- CONFERIR após os testes T01 a T13: listar aqui qualquer requisito que não tenha sido validado na placa -->
-
-- **Melhorias futuras (hardware e gráficos):**
-  - **Expansão do motor gráfico:** otimizar o uso de blocos de memória para suportar mais *sprites* simultâneos e explorar o motor de polígonos para chefes e cenários dinâmicos.
-  - **Coprocessador de áudio:** módulo de hardware dedicado para música de fundo e efeitos sonoros, explorando o *Audio Codec* nativo da DE1-SoC.
-
-- **Melhorias futuras (*software* e *game design*):**
-  - **Geração dinâmica de fases:** substituir os mapas estáticos por fases geradas proceduralmente, aumentando a rejogabilidade.
-  - **Ranking:** menu de pontuação persistente usando o sistema de arquivos do Linux no *HPS* para salvar os recordes.
+- **Geração dinâmica de fases:** substituir os mapas estáticos por um sistema de fases adaptáveis e geradas proceduralmente, aumentando a rejogabilidade.
+- **Sistema de ranking (*leaderboard*):** criar um menu de pontuação persistente, utilizando o sistema de arquivos do Linux no *HPS* para salvar e exibir os recordes (*High Scores*) dos jogadores.
 
 ## 14. Referências
 
