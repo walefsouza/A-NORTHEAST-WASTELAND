@@ -944,8 +944,6 @@ Em ambas as execuções, a lógica do jogo acompanhou o vídeo (cerca de 59 atua
 
 ### Estrutura do repositório:
 
-<!-- PREENCHER com a árvore final do repositório (software/, hardware/, images/, tests/, reports/, README.md) -->
-
 ```text
 .
 ├── hardware/      # projeto Quartus (Verilog, .qsys, .mif, .sdc) e .sof final
