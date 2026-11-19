@@ -62,14 +62,16 @@ Os requisitos abaixo foram levantados a partir do enunciado do Problema 3 (seç�
 
 ## 2. O Produto: A Northeast Wasteland
 
+<!-- PENDENTE: capturas de tela do jogo (fases manhã e noite); arquivo esperado: images/fase3/produto-controles.png. Descomentar ao adicionar a imagem.
 <div align="center">
   <img src="images/fase3/produto-controles.png" alt="Controles e capturas do jogo" width="900">
   <br>
-  <i>Figura 1: Esquema de controles e capturas de tela do jogo.</i>
+  <i>Figura ?: Esquema de controles e capturas de tela do jogo.</i>
 </div>
 <br>
+-->
 
-<!-- INSERIR: slide 3 (PRODUTO: A NORTHEAST WASTELAND), esquema de controles + capturas das fases manhã e noite -->
+<!-- INSERIR: slide 3 (PRODUTO: A NORTHEAST WASTELAND), capturas das fases manhã e noite (o esquema de controles já está na seção 2.1) -->
 
 O jogo coloca o jogador no papel de um cangaceiro que enfrenta, em três fases (manhã, tarde e noite), ondas de inimigos inspirados na fauna e no folclore do sertão. A fase avança conforme as ondas se esgotam, e a última termina com um chefe.
 
@@ -86,7 +88,12 @@ O jogo coloca o jogador no papel de um cangaceiro que enfrenta, em três fases (
 | **R** | Volta ao menu (a partir da pausa ou do fim de jogo) |
 | **ESC** | Encerra o jogo |
 
-![Controles do jogo](images/ctrl.png)
+<div align="center">
+  <img src="images/controles_anw.png" alt="Esquema de controles do jogo" width="900">
+  <br>
+  <i>Figura 1: Esquema de controles do jogo (teclado e mouse).</i>
+</div>
+<br>
 
 > [!NOTE]
 > As teclas **N** e **B** são atalhos de depuração que levam diretamente à fase 3 e ao chefe, respectivamente, e existem apenas para demonstração e teste.
@@ -126,12 +133,14 @@ Moedas | Instantâneo | +50 ou +250 pontos
 
 O sistema é organizado nas três camadas exigidas pelo enunciado. A aplicação em C só conhece a API do *driver*; o *driver* é a única fronteira com o hardware; e o coprocessador gera continuamente o sinal VGA.
 
+<!-- PENDENTE: diagrama de três camadas; arquivo esperado: images/fase3/arquitetura-camadas.png. Descomentar ao adicionar a imagem.
 <div align="center">
   <img src="images/fase3/arquitetura-camadas.png" alt="Arquitetura em três camadas" width="700">
   <br>
-  <i>Figura 2: Arquitetura em três camadas (aplicação C, driver Assembly e coprocessador FPGA).</i>
+  <i>Figura ?: Arquitetura em três camadas (aplicação C, driver Assembly e coprocessador FPGA).</i>
 </div>
 <br>
+-->
 
 <!-- INSERIR: diagrama de três camadas (pode ser gerado a partir de arquitetura_do_projeto.txt ou refeito no estilo dos slides) -->
 
@@ -443,12 +452,14 @@ Sequência executada por `enviar_inst(inst)`:
 6. **Espera do ACK:** lê o status até o bit 2 mudar, com limite de tentativas. Se estourar, baixa o *strobe*, aguarda e retorna `DRIVER_TIMEOUT_ACK` (-3).
 7. **Rearmar:** baixa PIO_CTRL[0] e realiza 16 leituras do status para que a FPGA enxergue o nível baixo antes do próximo envio, garantindo uma nova borda de subida na chamada seguinte.
 
+<!-- PENDENTE: diagrama temporal do handshake; arquivo esperado: images/fase3/handshake-temporal.png. Descomentar ao adicionar a imagem.
 <div align="center">
   <img src="images/fase3/handshake-temporal.png" alt="Diagrama temporal do handshake" width="800">
   <br>
-  <i>Figura 3: Diagrama temporal do protocolo de envio (DATA, VALID, ACK e rearme).</i>
+  <i>Figura ?: Diagrama temporal do protocolo de envio (DATA, VALID, ACK e rearme).</i>
 </div>
 <br>
+-->
 
 <!-- INSERIR (SUGESTÃO, não existe nos slides): diagrama temporal DATA/VALID/FIFO cheia/ACK/rearme -->
 
@@ -475,6 +486,13 @@ Código | Constante | Significado
 -7 | `DRIVER_ERRO_IO` | Falha em `open`/`mmap` em `abrir()`
 
 </div>
+
+<div align="center">
+  <img src="images/tabela_codigos.png" alt="Códigos de retorno do driver" width="700">
+  <br>
+  <i>Figura 2: Códigos de retorno do <i>driver</i> (resumo visual).</i>
+</div>
+<br>
 
 > [!NOTE]
 > Os limites de espera são **contagens de leituras MMIO** (100.000 para o envio e 1.000.000 para quadro e conclusão), declarados como provisórios no código. Eles garantem que nenhuma espera seja infinita, mas **não correspondem a um intervalo de tempo calibrado**. A conversão em milissegundos depende de medição na placa (seção 10.3).
@@ -516,13 +534,11 @@ Polígonos | `inspol`, `delpol`, `movpol`, `colpol`, `invpol`, `tampol` | IDs de
 A aplicação foi organizada em **seis blocos funcionais**, com dependências unidirecionais até a fronteira do *driver*. O princípio central é o **desacoplamento**: nenhum módulo de lógica ou mecânica escreve em registradores mapeados em memória; toda interação com o hardware ocorre por meio do contrato `driver.h`.
 
 <div align="center">
-  <img src="images/fase3/arquitetura-software.png" alt="Arquitetura de software" width="900">
+  <img src="images/arquitetura_software.png" alt="Arquitetura de software" width="900">
   <br>
-  <i>Figura 4: Arquitetura de software e fluxo entre os módulos.</i>
+  <i>Figura 3: Arquitetura de software e fluxo entre os módulos.</i>
 </div>
 <br>
-
-<!-- INSERIR: slide 5 (ARQUITETURA DE SOFTWARE), diagrama colorido com núcleo, entrada, FSM, domínio, apresentação e driver -->
 
 <details>
 <summary><h3>Versão textual dos seis blocos</h3></summary>
@@ -583,13 +599,11 @@ Responsável pelo ciclo de vida do processo, pelo contexto global da campanha e 
 ### 6.2. Bloco 2: Máquina de Estados Finitos (FSM)
 
 <div align="center">
-  <img src="images/fase3/fsm.png" alt="Máquina de estados do jogo" width="900">
+  <img src="images/maquina_estados.png" alt="Máquina de estados do jogo" width="900">
   <br>
-  <i>Figura 5: Máquina de estados do jogo.</i>
+  <i>Figura 4: Máquina de estados do jogo e interface de estados (<code>estado.c</code>).</i>
 </div>
 <br>
-
-<!-- INSERIR: slide 6 (LÓGICA E FSM'S), diagrama de estados e interface de estados -->
 
 Cada estado é uma estrutura com **três ponteiros de função**: `entrar` (executa uma vez ao entrar), `atualizar` (somente lógica) e `desenhar` (somente comandos ao hardware). Essa separação isola as regras do jogo do envio de comandos ao coprocessador.
 
@@ -614,13 +628,11 @@ Game over / Vitória | `estado_gameover.c` | Tela de encerramento (`jogo.venceu`
 ### 6.3. Bloco 3: Subsistema de Entrada (*Linux Input*)
 
 <div align="center">
-  <img src="images/fase3/entrada-fluxo.png" alt="Fluxo da interface de entrada" width="900">
+  <img src="images/fluxo_entrada.png" alt="Fluxo da interface de entrada" width="900">
   <br>
-  <i>Figura 6: Fluxo da leitura de teclado e mouse até o laço do jogo.</i>
+  <i>Figura 5: Fluxo da leitura de teclado e mouse até o laço do jogo.</i>
 </div>
 <br>
-
-<!-- INSERIR: slide 8 (INTERFACE DE ENTRADA), fluxo 1 a 5; e/ou slide 12 (ENTRADA.H/.C) -->
 
 * **`entrada.c` / `entrada.h`:** lê os dispositivos de entrada do Linux (`/dev/input/...`) diretamente, com **uma *thread* por dispositivo** (teclado e mouse), cada uma esperando eventos com `poll()` em paralelo ao jogo. Isso impede que a espera por entrada bloqueie o processamento dos quadros. O estado (teclas, botões e posição do cursor) é compartilhado e protegido por ***mutex***.
   * **Posição do mouse:** os eventos relativos (REL_X, REL_Y) são acumulados e limitados à tela (0 a 319 e 0 a 239).
@@ -632,6 +644,20 @@ Game over / Vitória | `estado_gameover.c` | Tela de encerramento (`jogo.venceu`
 
 O módulo exige privilégios de administrador (acesso a `/dev/input` e `/dev/mem`) e a compilação com `-pthread`.
 
+<div align="center">
+  <img src="images/modulo_entrada.png" alt="Módulo de entrada" width="900">
+  <br>
+  <i>Figura 6: Visão geral do módulo de entrada (<code>entrada.c</code> e <code>teclas.c</code>): dispositivos, <i>threads</i>, estado e uso pelo jogo.</i>
+</div>
+<br>
+
+<div align="center">
+  <img src="images/anw_entrada.gif" alt="Painel de teste da leitura de entradas" width="900">
+  <br>
+  <i>Figura 7: Painel de teste da leitura de teclado e mouse: estado das teclas e posição do cursor lidos pelas funções de <code>teclas.h</code> e <code>entrada.h</code>.</i>
+</div>
+<br>
+
 ### 6.4. Bloco 4: Domínio do Jogo e Mecânicas
 
 Concentra as regras do jogo, a inteligência dos inimigos e a física 2D, operando exclusivamente sobre estruturas em RAM.
@@ -639,24 +665,27 @@ Concentra as regras do jogo, a inteligência dos inimigos e a física 2D, operan
 * **`entity.c` / `entity.h`:** a **entidade universal**. Uma única estrutura (`Entity`) serve a jogador, obstáculos, inimigos, tiros e itens: posição, dimensões, área de colisão (`solidArea`), velocidade, direção, animação, padrão do *sprite* na FPGA e dois ponteiros de função (`update` e `interact`), que funcionam como métodos por tipo. As entidades vivem em um ***pool* fixo de 47 vagas** (`entities[47]`), sem alocação dinâmica: `entity_spawn` ocupa a primeira vaga livre e `entity_despawn` a zera. **O índice da entidade no *pool* é também o ID do *sprite* na FPGA**, o que dispensa qualquer tabela de associação.
 
 <div align="center">
-  <img src="images/fase3/entity-pool.png" alt="Entidade universal e pool" width="900">
+  <img src="images/entity.png" alt="Entidade universal e pool" width="900">
   <br>
-  <i>Figura 7: Entidade universal, pool fixo de 47 vagas e sprites do jogo.</i>
+  <i>Figura 8: Entidade universal, <i>pool</i> fixo de 47 vagas e funções de <code>entity.c</code>.</i>
 </div>
 <br>
-
-<!-- INSERIR: slide 14 (ENTITY.H/.C) -->
 
 * **`collision.c` / `collision.h` e `mapas.c` / `mapas.h`:** colisão por **AABB** (caixas alinhadas aos eixos). A colisão é testada **antes** do movimento, com a área de colisão deslocada pela velocidade: `collision_try_move()` executa `checkBounds` (bordas da tela), `checkTile` (*tiles* sólidos do mapa) e `checkEntity` (entidades sólidas), e só chama `entity_move()` se nenhuma bloquear. `checkTile` converte pixel em célula (÷ 8) e consulta a tabela `tiles_solidos[id]`, que `mapa_colisao[fase]` associa ao desenho da fase. O jogador usa colisão por eixo, de modo que o movimento diagonal é um passo em cada eixo. Atualmente, apenas os *tiles* de borda de cada fase (IDs 9, 20 e 31) são sólidos; os obstáculos internos (pedras e mandacarus) são entidades sólidas.
 
 <div align="center">
-  <img src="images/fase3/collision-mapas.png" alt="Colisão com tiles" width="900">
+  <img src="images/mapas.png" alt="Colisão com tiles" width="900">
   <br>
-  <i>Figura 8: Cálculo de colisão com os tiles do mapa (jogador movendo-se para a esquerda).</i>
+  <i>Figura 9: Cálculo de colisão com os <i>tiles</i> do mapa (jogador movendo-se para a esquerda).</i>
 </div>
 <br>
 
-<!-- INSERIR: slide 16 (MAPAS) e slide 17 (COLLISION), cálculos de colisão com tile e com entidade -->
+<div align="center">
+  <img src="images/collision.png" alt="Colisão com entidade" width="900">
+  <br>
+  <i>Figura 10: Cálculo de colisão com uma entidade sólida (jogador movendo-se para a direita, contra um mandacaru).</i>
+</div>
+<br>
 
 * **`jogador.c` / `jogador.h`:** o jogador é sempre a entidade 0 do *pool*. Move-se com WASD, mira com as setas ou com o cursor do mouse (botão esquerdo atira na direção do cursor), com cadência controlada por contador de quadros. Ao levar dano, fica invulnerável por alguns segundos (o *sprite* pisca); o escudo (cantil) absorve um dano. Possui uma área de contato menor que o *sprite* (mais justa para o jogador) e animação de morte.
 * **`projeteis.c` / `projeteis.h`:** os tiros usam o mesmo *pool* de entidades, com posição em **ponto fixo q4** (16 unidades = 1 pixel por quadro), o que dispensa ponto flutuante. Há limite de tiros por dono (10 do jogador e 6 dos inimigos). O tiro desaparece ao sair da tela ou ao bater em pedra ou mandacaru; a bala do jogador causa dano ao inimigo, e o espinho do inimigo causa dano ao jogador.
@@ -693,6 +722,13 @@ Corresponde ao *driver* descrito na seção 5 (`driver.h` e `driver.S`).
 ### 6.7. Orçamento de recursos gráficos
 
 <div align="center">
+  <img src="images/config_h.png" alt="Constantes de config.h e divisão dos sprites" width="900">
+  <br>
+  <i>Figura 11: Constantes globais de <code>config.h</code> e divisão dos 64 IDs de <i>sprite</i> da FPGA.</i>
+</div>
+<br>
+
+<div align="center">
 
 Recurso | IDs | Uso
 :---|:---|:---
@@ -722,12 +758,14 @@ Subsistema | Arquivos | Responsabilidade | Principais conexões
 
 ## 7. Integração Hardware-Software
 
+<!-- PENDENTE: diagrama de integração HW-SW; arquivo esperado: images/fase3/integracao-hw-sw.png. Descomentar ao adicionar a imagem.
 <div align="center">
   <img src="images/fase3/integracao-hw-sw.png" alt="Integração hardware-software" width="900">
   <br>
-  <i>Figura 9: Integração entre o processador ARM e o coprocessador gráfico.</i>
+  <i>Figura ?: Integração entre o processador ARM e o coprocessador gráfico.</i>
 </div>
 <br>
+-->
 
 <!-- INSERIR: slide 27 (INTEGRAÇÃO HARDWARE → SOFTWARE), diagrama software/AXI/hardware -->
 
@@ -748,12 +786,14 @@ O ritmo do jogo é dado pelo próprio vídeo: o laço principal espera o contado
 
 Como o *frame buffer* é duplo e a troca de página ocorre no início do *vertical blank*, uma alteração só chega ao monitor após a próxima troca de página. Com o temporizador do VGA (800 × 525 ciclos a 25 MHz), o período de um quadro é de aproximadamente 16,8 ms (59,5 Hz).
 
+<!-- PENDENTE: linha do tempo de um quadro; arquivo esperado: images/fase3/ciclo-quadro.png. Descomentar ao adicionar a imagem.
 <div align="center">
   <img src="images/fase3/ciclo-quadro.png" alt="Ciclo de um quadro" width="800">
   <br>
-  <i>Figura 10: Decomposição do período de um quadro (espera, lógica e dreno da FIFO).</i>
+  <i>Figura ?: Decomposição do período de um quadro (espera, lógica e dreno da FIFO).</i>
 </div>
 <br>
+-->
 
 <!-- INSERIR (SUGESTÃO, não existe nos slides): linha do tempo de um quadro com esperar_quadro, lógica, esperar_fim e vblank -->
 
@@ -836,12 +876,14 @@ Blocos DSP | 32 / 87 (37%) | 32 (37%)
 
 </div>
 
+<!-- PENDENTE: captura do Flow Summary do Quartus; arquivo esperado: images/fase3/resource-usage.png. Descomentar ao adicionar a imagem.
 <div align="center">
   <img src="images/fase3/resource-usage.png" alt="Resource Usage Summary" width="500">
   <br>
-  <i>Figura 11: Resumo de utilização de recursos, Quartus Prime Lite Edition.</i>
+  <i>Figura ?: Resumo de utilização de recursos, Quartus Prime Lite Edition.</i>
 </div>
 <br>
+-->
 
 <!-- INSERIR: captura do Flow Summary do Quartus (soc_system.fit.summary) -->
 
@@ -869,12 +911,14 @@ Fmax | **45,34 MHz** | *Slow 1100 mV 85 °C*
 
 A Fmax de 45,34 MHz representa uma folga de aproximadamente **1,8x** sobre os 25 MHz exigidos pela varredura VGA. Em relação à fase anterior (48,2 MHz), houve pequena redução, compatível com o acréscimo de lógica de decodificação e com a ampliação do banco de *sprites*. A análise de metaestabilidade do Quartus reportou 43 cadeias de sincronização, com o tempo de acomodação disponível de pior caso de 17,768 ns.
 
+<!-- PENDENTE: captura do Timing Analyzer; arquivo esperado: images/fase3/timing-summary.png. Descomentar ao adicionar a imagem.
 <div align="center">
   <img src="images/fase3/timing-summary.png" alt="Timing Analyzer Summary" width="700">
   <br>
-  <i>Figura 12: Resumo do Timing Analyzer e Fmax do clk_25.</i>
+  <i>Figura ?: Resumo do Timing Analyzer e Fmax do clk_25.</i>
 </div>
 <br>
+-->
 
 <!-- INSERIR: capturas do Multicorner Timing Analysis Summary e do Fmax Summary (soc_system.sta) -->
 
