@@ -58,17 +58,6 @@ Este projeto foi desenvolvido como parte do componente curricular **TEC499 - MI 
 
 ## 2. O Produto: A Northeast Wasteland
 
-<!-- PENDENTE: capturas de tela do jogo (fases manhã e noite); arquivo esperado: images/fase3/produto-controles.png. Descomentar ao adicionar a imagem.
-<div align="center">
-  <img src="images/fase3/produto-controles.png" alt="Controles e capturas do jogo" width="900">
-  <br>
-  <i>Figura ?: Esquema de controles e capturas de tela do jogo.</i>
-</div>
-<br>
--->
-
-<!-- INSERIR: slide 3 (PRODUTO: A NORTHEAST WASTELAND), capturas das fases manhã e noite (o esquema de controles já está na seção 2.1) -->
-
 O jogo coloca o jogador no papel de um cangaceiro que enfrenta, em três fases (manhã, tarde e noite), ondas de inimigos inspirados na fauna e no folclore do sertão. A fase avança conforme as ondas se esgotam, e a última termina com um chefe.
 
 ### 2.1. Controles
@@ -411,17 +400,6 @@ Sequência executada por `enviar_inst(inst)`:
 6. **Espera do ACK:** lê o status até o bit 2 mudar, com limite de tentativas. Se estourar, baixa o *strobe*, aguarda e retorna `DRIVER_TIMEOUT_ACK` (-3).
 7. **Rearmar:** baixa PIO_CTRL[0] e realiza 16 leituras do status para que a FPGA enxergue o nível baixo antes do próximo envio, garantindo uma nova borda de subida na chamada seguinte.
 
-<!-- PENDENTE: diagrama temporal do handshake; arquivo esperado: images/fase3/handshake-temporal.png. Descomentar ao adicionar a imagem.
-<div align="center">
-  <img src="images/fase3/handshake-temporal.png" alt="Diagrama temporal do handshake" width="800">
-  <br>
-  <i>Figura ?: Diagrama temporal do protocolo de envio (DATA, VALID, ACK e rearme).</i>
-</div>
-<br>
--->
-
-<!-- INSERIR (SUGESTÃO, não existe nos slides): diagrama temporal DATA/VALID/FIFO cheia/ACK/rearme -->
-
 > [!WARNING]
 > **Timeout após VALID deixa o resultado incerto.** Se o ACK não for observado, a instrução pode ou não ter sido aceita. Por isso, o *driver* **não reenvia automaticamente**: reenviar às cegas poderia duplicar um comando. A aplicação decide como recuperar (consultar o status, reiniciar a cena etc.).
 
@@ -620,7 +598,7 @@ Concentra as regras do jogo, a inteligência dos inimigos e a física 2D, operan
 * **`mat.c` / `mat.h`:** utilitários numéricos sem `math.h`: gerador pseudoaleatório (*xorshift*), raiz quadrada inteira, valor absoluto, sinal e vetor normalizado em ponto fixo q4.
 
 > [!IMPORTANT]
-> **Agrupamentos e eliminação.** A mecânica de agrupamentos do jogo se dá por **bandos**: urubus e morcegos nascem em grupos de 3 a 4 unidades e podem ser eliminados individualmente por tiros (cada inimigo vale seus pontos) ou **coletivamente** pelo item Fogueira, que elimina todos os inimigos comuns da tela e pontua cada um (o chefe não é afetado). Não há associação persistente entre os integrantes de um bando (identificador de grupo), e o avanço de onda ocorre pelo tempo, não pela eliminação do grupo. A equivalência dessa regra com a do problema de referência deve ser conferida e registrada na seção 12.
+> **Agrupamentos e eliminação.** A mecânica de agrupamentos do jogo se dá por **bandos**: urubus e morcegos nascem em grupos de 3 a 4 unidades e podem ser eliminados individualmente por tiros (cada inimigo vale seus pontos) ou **coletivamente** pelo item Fogueira, que elimina todos os inimigos comuns da tela e pontua cada um (o chefe não é afetado). Não há associação persistente entre os integrantes de um bando (identificador de grupo), e o avanço de onda ocorre pelo tempo, não pela eliminação do grupo. 
 
 ### 6.5. Bloco 5: Camada de Apresentação e Recursos
 
@@ -698,17 +676,6 @@ O ritmo do jogo é dado pelo próprio vídeo: o laço principal espera o contado
 ```
 
 Como o *frame buffer* é duplo e a troca de página ocorre no início do *vertical blank*, uma alteração só chega ao monitor após a próxima troca de página. Com o temporizador do VGA (800 × 525 ciclos a 25 MHz), o período de um quadro é de aproximadamente 16,8 ms (59,5 Hz).
-
-<!-- PENDENTE: linha do tempo de um quadro; arquivo esperado: images/fase3/ciclo-quadro.png. Descomentar ao adicionar a imagem.
-<div align="center">
-  <img src="images/fase3/ciclo-quadro.png" alt="Ciclo de um quadro" width="800">
-  <br>
-  <i>Figura ?: Decomposição do período de um quadro (espera, lógica e dreno da FIFO).</i>
-</div>
-<br>
--->
-
-<!-- INSERIR (SUGESTÃO, não existe nos slides): linha do tempo de um quadro com esperar_quadro, lógica, esperar_fim e vblank -->
 
 ### 7.2. Política de erros
 
@@ -909,17 +876,6 @@ Pinos | 382 / 457 (84%)
 
 </div>
 
-<!-- PENDENTE: captura do Flow Summary do Quartus; arquivo esperado: images/fase3/resource-usage.png. Descomentar ao adicionar a imagem.
-<div align="center">
-  <img src="images/fase3/resource-usage.png" alt="Resource Usage Summary" width="500">
-  <br>
-  <i>Figura ?: Resumo de utilização de recursos, Quartus Prime Lite Edition.</i>
-</div>
-<br>
--->
-
-<!-- INSERIR: captura do Flow Summary do Quartus (soc_system.fit.summary) -->
-
 ### 10.2. Análise de *timing*
 
 O *Timing Analyzer* não apontou violações de *setup* nem de *hold* nos dois *clocks* do projeto:
@@ -934,17 +890,6 @@ Clock | Fmax | Folga de *setup* | Folga de *hold*
 </div>
 
 O `clk_25` alimenta todo o coprocessador. Sua Fmax de 45,34 MHz representa uma folga de aproximadamente **1,8x** sobre os 25 MHz exigidos pela varredura VGA.
-
-<!-- PENDENTE: captura do Timing Analyzer; arquivo esperado: images/fase3/timing-summary.png. Descomentar ao adicionar a imagem.
-<div align="center">
-  <img src="images/fase3/timing-summary.png" alt="Timing Analyzer Summary" width="700">
-  <br>
-  <i>Figura ?: Resumo do Timing Analyzer e Fmax do clk_25.</i>
-</div>
-<br>
--->
-
-<!-- INSERIR: capturas do Multicorner Timing Analysis Summary e do Fmax Summary (soc_system.sta) -->
 
 ### 10.3. Desempenho da solução integrada
 
@@ -963,8 +908,6 @@ Leituras de STATUS incoerentes | 0 de 56.960 | 0 de 114.080
 Entidades (máx.) | 20 | 27
 
 </div>
-
-<!-- INSERIR: captura do painel de desempenho no terminal -->
 
 Em ambas as execuções, a lógica do jogo acompanhou o vídeo (cerca de 59 atualizações por segundo, acima do mínimo de 30 do RNF01), a latência de entrada ficou em cerca de 16,8 ms (limite de 100 ms do RNF02) e nenhuma leitura incoerente do STATUS foi detectada.
 
@@ -1023,7 +966,7 @@ Padrões de *sprites* | RAM regravável de 64 padrões, carregada em tempo de ex
 *Handshake* | READY derivado de !FIFO_CHEIA; BUSY = STATUS[3]; ACK = *toggle* em STATUS[2] por *push* aceito; DONE global = FIFO_VAZIA e !UC_OCUPADA. O ACK confirma aceitação, o DONE confirma execução
 Reenvio após *timeout* | Não há reenvio automático após VALID: o resultado é incerto e a decisão fica com a aplicação
 Política de falhas | *Fail-stop*: qualquer erro de *driver* ou da FPGA interrompe o laço e encerra com código 2
-Agrupamentos | Bandos de 3 a 4 inimigos (urubus e morcegos) e eliminação coletiva pela Fogueira. <!-- CONFERIR com a regra do problema de referência e registrar o teste que a comprova -->
+Agrupamentos | Bandos de 3 a 4 inimigos (urubus e morcegos) e eliminação coletiva pela Fogueira.
 Entradas | Uma *thread* por dispositivo, estado compartilhado com *mutex* e "fotografia" por quadro; caminhos dos dispositivos configuráveis
 
 </div>
