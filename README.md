@@ -4,7 +4,7 @@
 
 ## Descrição do Projeto
 
-Etapa final do console digital dedicado desenvolvido na disciplina. Nas fases anteriores, a equipe construiu o **coprocessador gráfico programável** em FPGA (Problemas 1 e 2), com *ISA* própria de 32 bits, fila de instruções, unidade de controle, bancos de registradores e motores de *background*, *sprites* e polígonos, além do *driver* em *Assembly* ARM que o acessa por *MMIO*. Nesta fase, o produto final foi entregue: o jogo ***A Northeast Wasteland***, um *shooter* 2D de visão superior em ambientação nordestina, escrito em linguagem C, executado no processador ARM (*HPS*) da DE1-SoC sob Linux, controlado por teclado e mouse USB e exibido em monitor VGA.
+Etapa final do console digital dedicado desenvolvido na disciplina. Nas fases anteriores, foi realizada a construção o **coprocessador gráfico programável** em FPGA (Problemas 1 e 2), com *ISA* própria de 32 bits, fila de instruções, unidade de controle, bancos de registradores e motores de *background*, *sprites* e polígonos, além do *driver* em *Assembly* ARM que o acessa por *MMIO*. Nesta fase, o produto final foi entregue: o jogo ***A Northeast Wasteland***, um jogo 2D de visão superior em ambientação nordestina, escrito em linguagem C, executado no processador ARM (*HPS*) da DE1-SoC sob Linux, controlado por teclado e mouse USB e exibido em monitor VGA.
 
 Toda a imagem é gerada pelo coprocessador. A aplicação em C não acessa registradores, não desenha *pixels* e não conhece os detalhes internos do hardware: ela calcula a física e o estado da partida e compõe a cena exclusivamente por meio da API do *driver* em *Assembly*. Para viabilizar o jogo, o coprocessador sofreu ajustes de hardware (64 *sprites*, RAM de padrões gravável, ROM de *tiles* ampliada e sinal de confirmação de aceitação, ou *ACK*), e o *driver* foi estendido com validação de parâmetros, tratamento de *timeouts* e códigos de erro padronizados, mantendo a compatibilidade com a *ISA* documentada no Problema 2.
 
@@ -35,8 +35,6 @@ Este projeto foi desenvolvido como parte do componente curricular **TEC499 - MI 
 14. [Referências Bibliográficas](#14-referências)
 
 ## 1. Requisitos Funcionais e Não Funcionais
-
-Os requisitos abaixo foram levantados a partir do enunciado do Problema 3 (seções 3 e 4) e organizados por camada.
 
 ### **1.1. Funcionais:**
 
