@@ -133,49 +133,12 @@ Moedas | Instantâneo | +50 ou +250 pontos
 
 O sistema é organizado nas três camadas exigidas pelo enunciado. A aplicação em C só conhece a API do *driver*; o *driver* é a única fronteira com o hardware; e o coprocessador gera continuamente o sinal VGA.
 
-<!-- PENDENTE: diagrama de três camadas; arquivo esperado: images/fase3/arquitetura-camadas.png. Descomentar ao adicionar a imagem.
 <div align="center">
-  <img src="images/fase3/arquitetura-camadas.png" alt="Arquitetura em três camadas" width="700">
+  <img src="images/arquitetura-camadas.png" alt="Arquitetura em três camadas" width="700">
   <br>
   <i>Figura ?: Arquitetura em três camadas (aplicação C, driver Assembly e coprocessador FPGA).</i>
 </div>
 <br>
--->
-
-<!-- INSERIR: diagrama de três camadas (pode ser gerado a partir de arquitetura_do_projeto.txt ou refeito no estilo dos slides) -->
-
-<details>
-<summary><h3>Versão textual do diagrama de camadas</h3></summary>
-
-```text
-+-----------------------------------------------------------------------------+
-|                          CAMADA DE APLICAÇÃO (Linguagem C)                  |
-|  +-------------------+  +-----------------------+  +---------------------+  |
-|  | Máquina de        |  | Mecânica e Lógica     |  | Leitura de Entradas |  |
-|  | Estados (FSM)     |  | (Hitboxes, Pontuação) |  | (Teclado e Mouse)   |  |
-|  +--------+----------+  +-----------+-----------+  +----------+----------+  |
-|           +-------------------------+-------------------------+             |
-|                         +-----------v-----------+                           |
-|                         |  Gerenciador de Cena  |                           |
-|                         |  (Chamadas da API)    |                           |
-|                         +-----------+-----------+                           |
-+-------------------------------------|---------------------------------------+
-                                      | Convenção de Chamadas ARM (Parâmetros)
-+-------------------------------------v---------------------------------------+
-|                          CAMADA DE DRIVER (Assembly ARM)                    |
-|  +-------------------+  +-----------------------+  +---------------------+  |
-|  | API Estável       |  | Handshake / Sincronia |  | Mapeamento MMIO     |  |
-|  | (Rotinas Gráficas)|  | (Valid, Busy, Done)   |  | (Ponte HPS-FPGA)    |  |
-|  +-------------------+  +-----------------------+  +---------------------+  |
-+-------------------------------------|---------------------------------------+
-                                      | Barramento AXI / Sinais de Controle
-+-------------------------------------v---------------------------------------+
-|                       CAMADA DE HARDWARE (Coprocessador FPGA)               |
-|         (Background, Sprites, Polígonos, Fila de Instruções, Sinal VGA)     |
-+-----------------------------------------------------------------------------+
-```
-
-</details>
 
 ### 3.1. Responsabilidades por camada
 
@@ -715,11 +678,7 @@ Traduz o estado da simulação em chamadas ao *driver*. O jogo nunca fala direta
 * **`mapas.c` / `mapas.h` e `menu_mapas.c` / `menu_mapas.h`:** `mapas.c` guarda os *tilemaps* de 40×30 das três fases e a tabela de *tiles* sólidos; `menu_mapas.c` guarda os *tilemaps* das telas de título, game over, vitória e transição, além dos *tiles* dos botões (normal e selecionado).
 * **`hud.c` / `hud.h` e `texto.c` / `texto.h`:** o HUD mostra pontos (6 dígitos), corações de vida, ícone e barra do *power-up* ativo, ícone de escudo, barra de tempo da onda e banners ("ONDA 2", "CHEFE"). O hardware não possui fonte: **cada letra é um *sprite* 16×16**, com avanço de 14 px por letra e 8 px por espaço, e duas fontes (a do jogo, com dígitos e poucas letras, e a do menu, com 0-9, A-Z e "!"). As barras e o painel de pausa usam o **motor de polígonos** (retângulos coloridos), sem consumir *sprites*.
 
-### 6.6. Bloco 6: Camada de Abstração de Hardware
-
-Corresponde ao *driver* descrito na seção 5 (`driver.h` e `driver.S`).
-
-### 6.7. Orçamento de recursos gráficos
+### 6.6. Orçamento de recursos gráficos
 
 <div align="center">
   <img src="images/config_h.png" alt="Constantes de config.h e divisão dos sprites" width="900">
@@ -741,7 +700,7 @@ Polígonos | 0 a 7 | Barra de tempo da onda (0), barra do item (1), painel de pa
 > [!NOTE]
 > Nos estados de menu, transição e game over, os IDs de *sprite* são reutilizados pelo texto da tela, e a mira do mouse usa o ID 63.
 
-### 6.8. Matriz consolidada de módulos
+### 6.7. Matriz consolidada de módulos
 
 <div align="center">
 
